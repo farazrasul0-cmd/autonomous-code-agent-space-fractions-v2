@@ -67,7 +67,11 @@ def make_valid_contract():
                 "name": "Game",
                 "file": "models.py",
                 "base": None,
-                "attributes": [{"name": "score", "type": "int", "visibility": "private"}],
+                "attributes": [
+                    {"name": "id", "type": "str", "visibility": "private"},
+                    {"name": "score", "type": "int", "visibility": "private"},
+                    {"name": "state", "type": "str", "visibility": "private"}
+                ],
                 "properties": [],
                 "methods": [{"name": "play", "params": ["self"], "returns": "None", "kind": "method"}]
             },
@@ -75,7 +79,12 @@ def make_valid_contract():
                 "name": "Question",
                 "file": "models.py",
                 "base": None,
-                "attributes": [{"name": "prompt", "type": "str", "visibility": "private"}],
+                "attributes": [
+                    {"name": "id", "type": "str", "visibility": "private"},
+                    {"name": "prompt", "type": "str", "visibility": "private"},
+                    {"name": "options", "type": "list", "visibility": "private"},
+                    {"name": "answer_index", "type": "int", "visibility": "private"}
+                ],
                 "properties": [],
                 "methods": [{"name": "getPrompt", "params": ["self"], "returns": "str", "kind": "method"}]
             },
@@ -83,7 +92,10 @@ def make_valid_contract():
                 "name": "User",
                 "file": "models.py",
                 "base": None,
-                "attributes": [{"name": "username", "type": "str", "visibility": "private"}],
+                "attributes": [
+                    {"name": "id", "type": "str", "visibility": "private"},
+                    {"name": "username", "type": "str", "visibility": "private"}
+                ],
                 "properties": [],
                 "methods": [{"name": "playGame", "params": ["self", "game"], "returns": "None", "kind": "method"}]
             },
@@ -91,7 +103,10 @@ def make_valid_contract():
                 "name": "Admin",
                 "file": "models.py",
                 "base": None,
-                "attributes": [{"name": "username", "type": "str", "visibility": "private"}],
+                "attributes": [
+                    {"name": "id", "type": "str", "visibility": "private"},
+                    {"name": "username", "type": "str", "visibility": "private"}
+                ],
                 "properties": [],
                 "methods": [{"name": "updateQuestions", "params": ["self", "questions"], "returns": "None", "kind": "method"}]
             }
@@ -103,7 +118,8 @@ def make_valid_contract():
             {"name": "start_game", "signature": "start_game() -> None", "purpose": "Use case: Play Game"},
             {"name": "view_score", "signature": "view_score() -> int", "purpose": "Use case: View Score"},
             {"name": "update_questions", "signature": "update_questions(questions: list) -> None", "purpose": "Use case: Update Questions"},
-            {"name": "show_help", "signature": "show_help() -> None", "purpose": "Use case: View Help"}
+            {"name": "show_help", "signature": "show_help() -> None", "purpose": "Use case: View Help"},
+            {"name": "end_game", "signature": "end_game() -> None", "purpose": "Transition Game.state to GameOver (trigger for gameOver state transition)"}
         ],
         "states": [
             {"name": "Playing", "owner": "Game", "attribute": "state"},
@@ -113,12 +129,13 @@ def make_valid_contract():
         "transitions": [
             {"trigger": "pause", "from": "Playing", "to": "Paused"},
             {"trigger": "resume", "from": "Paused", "to": "Playing"},
-            {"trigger": "gameOver", "from": "Playing", "to": "GameOver"}
+            {"trigger": "gameOver", "method": "end_game", "from": "Playing", "to": "GameOver"}
         ],
         "smoke_steps": [
             {"call": "create_app", "args": [], "purpose": "Smoke test application launch"},
             {"call": "start_game", "args": [], "purpose": "Smoke test Play Game flow"},
             {"call": "view_score", "args": [], "purpose": "Smoke test View Score flow"},
+            {"call": "end_game", "args": [], "purpose": "Smoke test game over state"},
             {"call": "update_questions", "args": [[]], "purpose": "Smoke test admin update questions flow"},
             {"call": "show_help", "args": [], "purpose": "Smoke test View Help flow"}
         ],
@@ -126,7 +143,11 @@ def make_valid_contract():
             {"diagram_element": "ClassDiagram.Game", "code_symbol": "Game"},
             {"diagram_element": "ClassDiagram.Question", "code_symbol": "Question"},
             {"diagram_element": "ClassDiagram.User", "code_symbol": "User"},
-            {"diagram_element": "ClassDiagram.Admin", "code_symbol": "Admin"}
+            {"diagram_element": "ClassDiagram.Admin", "code_symbol": "Admin"},
+            {"diagram_element": "UseCaseDiagram.Play Game", "code_symbol": "App.start_game"},
+            {"diagram_element": "UseCaseDiagram.View Score", "code_symbol": "App.view_score"},
+            {"diagram_element": "UseCaseDiagram.Update Questions", "code_symbol": "App.update_questions"},
+            {"diagram_element": "UseCaseDiagram.View Help", "code_symbol": "App.show_help"}
         ]
     }
 
@@ -138,9 +159,13 @@ class TestContract(unittest.TestCase):
         self.valid_contract = make_valid_contract()
 
     def test_valid_contract_passes(self):
-        """Sanity check: valid baseline contract passes validation with 0 problems."""
-        problems = validate_contract(self.valid_contract, self.spec)
-        self.assertEqual(problems, [], f"Expected 0 problems, got: {problems}")
+        """Verify the real contract.json on disk passes all validation rules with 0 problems."""
+        contract_path = os.path.join(repo_root, "contract.json")
+        self.assertTrue(os.path.exists(contract_path), f"contract.json not found on disk at {contract_path}")
+        with open(contract_path, "r", encoding="utf-8") as f:
+            real_contract = json.load(f)
+        problems = validate_contract(real_contract, self.spec)
+        self.assertEqual(problems, [], f"Real contract.json failed validation: {problems}")
 
     def test_contract_schema_rejects_missing_class(self):
         """Test 1: take a valid contract, remove one class, assert validate_contract returns a problem naming that class."""

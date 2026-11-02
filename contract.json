@@ -8,7 +8,7 @@
     },
     {
       "path": "app.py",
-      "purpose": "Tkinter application class implementing use cases and navigation",
+      "purpose": "Main application class with UI and use case methods",
       "order": 2,
       "imports": [
         "models"
@@ -16,7 +16,7 @@
     },
     {
       "path": "main.py",
-      "purpose": "Entry point: create_app factory function",
+      "purpose": "Entry point: create_app function",
       "order": 3,
       "imports": [
         "app"
@@ -51,7 +51,8 @@
           "name": "__init__",
           "params": [
             "self",
-            "id"
+            "id",
+            "score"
           ],
           "returns": "None",
           "kind": "method"
@@ -65,35 +66,11 @@
           "kind": "method"
         },
         {
-          "name": "view_score",
+          "name": "viewScore",
           "params": [
             "self"
           ],
           "returns": "int",
-          "kind": "method"
-        },
-        {
-          "name": "pause",
-          "params": [
-            "self"
-          ],
-          "returns": "None",
-          "kind": "method"
-        },
-        {
-          "name": "resume",
-          "params": [
-            "self"
-          ],
-          "returns": "None",
-          "kind": "method"
-        },
-        {
-          "name": "game_over",
-          "params": [
-            "self"
-          ],
-          "returns": "None",
           "kind": "method"
         }
       ]
@@ -117,6 +94,11 @@
           "name": "options",
           "type": "List[str]",
           "visibility": "private"
+        },
+        {
+          "name": "answer_index",
+          "type": "int",
+          "visibility": "private"
         }
       ],
       "properties": [],
@@ -127,13 +109,14 @@
             "self",
             "id",
             "prompt",
-            "options"
+            "options",
+            "answer_index"
           ],
           "returns": "None",
           "kind": "method"
         },
         {
-          "name": "get_prompt",
+          "name": "getPrompt",
           "params": [
             "self"
           ],
@@ -141,7 +124,7 @@
           "kind": "method"
         },
         {
-          "name": "get_options",
+          "name": "getOptions",
           "params": [
             "self"
           ],
@@ -179,7 +162,7 @@
           "kind": "method"
         },
         {
-          "name": "play_game",
+          "name": "playGame",
           "params": [
             "self",
             "game"
@@ -188,7 +171,7 @@
           "kind": "method"
         },
         {
-          "name": "view_score",
+          "name": "viewScore",
           "params": [
             "self",
             "game"
@@ -227,7 +210,7 @@
           "kind": "method"
         },
         {
-          "name": "update_questions",
+          "name": "updateQuestions",
           "params": [
             "self",
             "questions"
@@ -248,6 +231,11 @@
           "visibility": "private"
         },
         {
+          "name": "current_user",
+          "type": "User",
+          "visibility": "private"
+        },
+        {
           "name": "current_game",
           "type": "Game",
           "visibility": "private"
@@ -255,16 +243,6 @@
         {
           "name": "questions",
           "type": "List[Question]",
-          "visibility": "private"
-        },
-        {
-          "name": "current_user",
-          "type": "User",
-          "visibility": "private"
-        },
-        {
-          "name": "current_admin",
-          "type": "Admin",
           "visibility": "private"
         }
       ],
@@ -345,10 +323,18 @@
           "kind": "method"
         },
         {
-          "name": "submit_update_questions",
+          "name": "end_game",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "update_questions",
           "params": [
             "self",
-            "questions_data"
+            "questions"
           ],
           "returns": "None",
           "kind": "method"
@@ -392,7 +378,7 @@
     {
       "name": "start_play_game",
       "signature": "start_play_game() -> None",
-      "purpose": "Start a new game"
+      "purpose": "Navigate to play screen (calls show_play_game) and initialize game state"
     },
     {
       "name": "submit_answer",
@@ -405,9 +391,14 @@
       "purpose": "Toggle pause/resume game"
     },
     {
-      "name": "submit_update_questions",
-      "signature": "submit_update_questions(questions_data: List[dict]) -> None",
-      "purpose": "Update questions from admin input"
+      "name": "end_game",
+      "signature": "end_game() -> None",
+      "purpose": "Transition Game.state to GameOver (trigger for gameOver state transition)"
+    },
+    {
+      "name": "update_questions",
+      "signature": "update_questions(questions: List[dict]) -> None",
+      "purpose": "Update question bank (admin use case)"
     }
   ],
   "states": [
@@ -429,24 +420,28 @@
   ],
   "transitions": [
     {
-      "trigger": "start",
+      "trigger": "initial",
       "from": null,
-      "to": "Playing"
+      "to": "Playing",
+      "method": null
     },
     {
       "trigger": "pause",
       "from": "Playing",
-      "to": "Paused"
+      "to": "Paused",
+      "method": "toggle_pause"
     },
     {
       "trigger": "resume",
       "from": "Paused",
-      "to": "Playing"
+      "to": "Playing",
+      "method": "toggle_pause"
     },
     {
       "trigger": "gameOver",
       "from": "Playing",
-      "to": "GameOver"
+      "to": "GameOver",
+      "method": "end_game"
     }
   ],
   "smoke_steps": [
@@ -458,34 +453,34 @@
     {
       "call": "show_menu",
       "args": [],
-      "purpose": "Smoke test menu display"
+      "purpose": "Smoke test main menu"
     },
     {
       "call": "start_play_game",
       "args": [],
-      "purpose": "Smoke test starting a game"
+      "purpose": "Smoke test start play game"
     },
     {
       "call": "submit_answer",
       "args": [
         0
       ],
-      "purpose": "Smoke test submitting an answer"
+      "purpose": "Smoke test submit answer"
     },
     {
       "call": "toggle_pause",
       "args": [],
-      "purpose": "Smoke test pausing/resuming"
+      "purpose": "Smoke test toggle pause"
+    },
+    {
+      "call": "end_game",
+      "args": [],
+      "purpose": "Smoke test end game"
     },
     {
       "call": "show_view_score",
       "args": [],
-      "purpose": "Smoke test viewing score"
-    },
-    {
-      "call": "show_help",
-      "args": [],
-      "purpose": "Smoke test help screen"
+      "purpose": "Smoke test view score"
     },
     {
       "call": "show_update_questions",
@@ -493,7 +488,7 @@
       "purpose": "Smoke test admin update questions screen"
     },
     {
-      "call": "submit_update_questions",
+      "call": "update_questions",
       "args": [
         [
           {
@@ -503,11 +498,17 @@
               "3",
               "4",
               "5"
-            ]
+            ],
+            "answer_index": 1
           }
         ]
       ],
-      "purpose": "Smoke test admin updating questions"
+      "purpose": "Smoke test admin update questions"
+    },
+    {
+      "call": "show_help",
+      "args": [],
+      "purpose": "Smoke test help screen"
     }
   ],
   "traceability": [
@@ -537,7 +538,7 @@
     },
     {
       "diagram_element": "UseCaseDiagram.Update Questions",
-      "code_symbol": "App.submit_update_questions"
+      "code_symbol": "App.update_questions"
     },
     {
       "diagram_element": "UseCaseDiagram.View Help",

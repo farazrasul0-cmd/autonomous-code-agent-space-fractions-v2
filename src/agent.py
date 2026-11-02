@@ -95,7 +95,7 @@ def build_contract_prompt(spec):
 2. Dependencies: Python Standard Library ONLY (e.g. tkinter, json, math, random, datetime, pathlib, unittest). No 3rd-party pip packages.
 3. Architecture Fidelity: Retain every class name, attribute, and method signature specified in the architecture specification.
 4. Method Kinds: Each method must have kind 'method', 'property', or 'staticmethod'.
-5. File Dependencies: Define files in strictly topological dependency order (a file must only import files with lower order indices).
+5. File Dependencies: Define files in strictly topological dependency order with 'main.py' as the LAST file.
 6. Coverage Mandate: Include every class from the class diagram and every usecase from the use case diagram.
 7. The contract MUST declare all states and transitions from the state diagram under the 'states' and 'transitions' keys. Every transition trigger must match the state diagram triggers.
 8. Administrative Flow: If the specification contains an Admin actor or Update Questions usecase, you MUST include a dedicated smoke step whose purpose or call name contains 'admin' or 'update'.
@@ -103,9 +103,19 @@ def build_contract_prompt(spec):
 ### APPLICATION STRUCTURE (MANDATORY):
 - The project MUST expose `main.create_app(root)` returning an App instance.
 - The App MUST have public methods for every use case and every screen named in the documents.
-- App methods MUST be navigable: show_menu(), show_<screen>(), start_<use_case>(), submit_<action>(), toggle_<state>().
+- App methods MUST be navigable: show_menu(), show_<screen>(), start_<use_case>(), submit_<action>(), toggle_<state>(), end_game().
 - App methods MUST take zero arguments OR only primitive literals (int index, str value, list of dicts). They MUST NOT take domain objects (User, Game, Question) as parameters, because the harness cannot construct those.
 - smoke_steps MUST be executable directly on the App instance returned by create_app(root) with literal arguments. No identifier strings like 'user' or 'game'.
+
+### SPECIFIC METHOD & SMOKE STEP SPECIFICATION:
+- 'start_play_game' purpose: "Navigate to play screen (calls show_play_game) and initialize game state"
+- 'end_game': signature "end_game() -> None", purpose: "Transition Game.state to GameOver (trigger for gameOver state transition)"
+- Smoke steps order: include `end_game` with `args: []` after `submit_answer` and `toggle_pause`, before `show_view_score`.
+- gameOver transition: declare with "trigger": "gameOver", "method": "end_game", "from": "Playing", "to": "GameOver".
+- Domain attributes:
+  - 'Game' must include attributes: 'id', 'score', and 'state'.
+  - 'Question' must include attributes: 'id', 'prompt', 'options', and 'answer_index'.
+- Traceability: must map all ClassDiagram classes, all UseCaseDiagram use cases, and all StateDiagram states.
 
 ### REQUIRED JSON SCHEMA FORMAT:
 {schema_example}
@@ -323,6 +333,58 @@ def validate_contract(contract, spec):
                 "Missing Admin flow smoke step: spec defines Admin actor / Update Questions usecase, "
                 "but no smoke step covers 'admin' or 'update'."
             )
+
+    # 10. Specific attribute requirements for Game and Question classes
+    for c in classes:
+        if isinstance(c, dict):
+            cname = c.get("name")
+            if cname == "Game":
+                attrs = [a.get("name") if isinstance(a, dict) else str(a) for a in c.get("attributes", [])]
+                for req_attr in ("id", "score", "state"):
+                    if req_attr not in attrs:
+                        problems.append(f"Class 'Game' missing required attribute '{req_attr}'.")
+            elif cname == "Question":
+                attrs = [a.get("name") if isinstance(a, dict) else str(a) for a in c.get("attributes", [])]
+                for req_attr in ("id", "prompt", "options", "answer_index"):
+                    if req_attr not in attrs:
+                        problems.append(f"Class 'Question' missing required attribute '{req_attr}'.")
+
+    # 11. Ensure main.py is the LAST file in files list
+    if files and isinstance(files, list):
+        last_file = files[-1].get("path", "") if isinstance(files[-1], dict) else ""
+        if not (last_file == "main.py" or last_file.endswith("/main.py") or last_file.endswith("\\main.py")):
+            problems.append(f"The last file in 'files' must be 'main.py', but got '{last_file}'.")
+
+    # 12. Ensure traceability covers all ClassDiagram classes and UseCaseDiagram use cases
+    traceability = contract.get("traceability", [])
+    if isinstance(traceability, list):
+        trace_elems = {str(t.get("diagram_element", "")) for t in traceability if isinstance(t, dict)}
+        for sc in spec_classes:
+            sc_name = sc.get("name")
+            if sc_name and not any(sc_name in te for te in trace_elems):
+                problems.append(f"Traceability missing ClassDiagram class '{sc_name}'.")
+        for uc in spec.get("diagrams", {}).get("UseCaseDiagram", {}).get("usecases", []):
+            if not any(uc.lower() in te.lower() for te in trace_elems):
+                problems.append(f"Traceability missing UseCaseDiagram usecase '{uc}'.")
+
+    # 13. Ensure end_game is present in app_methods and smoke_steps
+    if "end_game" not in app_method_names:
+        problems.append("Contract missing required 'end_game' in app_methods.")
+
+    has_end_game_smoke = False
+    for step in smoke_steps:
+        if isinstance(step, dict) and step.get("call") == "end_game":
+            has_end_game_smoke = True
+            break
+    if not has_end_game_smoke:
+        problems.append("Contract missing required 'end_game' smoke step.")
+
+    # 14. Ensure gameOver transition maps to end_game
+    for t in contract.get("transitions", []):
+        if isinstance(t, dict) and t.get("trigger", "").lower() == "gameover":
+            method = t.get("method", "") or t.get("trigger", "")
+            if "end_game" not in method and "gameover" not in method.lower():
+                problems.append("gameOver transition must map to 'end_game' method.")
 
     return problems
 
