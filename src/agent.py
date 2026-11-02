@@ -2,9 +2,11 @@
 import os
 import re
 import sys
+import ast
 import json
 import time
 import tkinter
+import py_compile
 from pathlib import Path
 
 # Add repo root to path
@@ -17,6 +19,11 @@ from src.llm import Client, FakeClient, LLMError, BudgetExceededError
 
 class ContractError(Exception):
     """Raised when architectural contract generation or validation fails."""
+    pass
+
+
+class PathEscapeError(Exception):
+    """Raised when safe_write detects path traversal or path escape outside run_dir."""
     pass
 
 
@@ -548,3 +555,518 @@ def generate_contract(client, spec, max_tokens=8192, runs_dir="runs"):
         f.write(content2 if content2 else content)
 
     raise ContractError(f"Contract validation failed after retry. Problems: {problems2}. Saved to {bad_contract_path}")
+
+
+# =====================================================================
+# Phase 6: Code Implementation Stage (Contract -> Code with Signature Ledger)
+# =====================================================================
+
+WRITE_FILE_TOOL = [
+    {
+        "type": "function",
+        "function": {
+            "name": "write_file",
+            "description": "Write complete source code content to the specified file path.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "The destination relative file path."},
+                    "content": {"type": "string", "description": "The complete, robust source code for the file."}
+                },
+                "required": ["path", "content"]
+            }
+        }
+    }
+]
+
+WINDOWED_GUARD = (
+    "import sys, os\n"
+    "if sys.stdout is None:\n"
+    "    sys.stdout = open(os.devnull, \"w\")\n"
+    "if sys.stderr is None:\n"
+    "    sys.stderr = open(os.devnull, \"w\")\n"
+)
+
+
+def safe_write(run_dir: str | Path, rel_path: str, text: str) -> str:
+    """Safely write text to rel_path inside run_dir, preventing path traversal and escapes."""
+    if os.path.isabs(rel_path) or Path(rel_path).is_absolute():
+        raise PathEscapeError(f"Absolute path rejected: {rel_path}")
+
+    # Reject parent traversal components
+    rel_parts = Path(rel_path).parts
+    if ".." in rel_parts or ".." in rel_path.split("/") or ".." in rel_path.split("\\"):
+        raise PathEscapeError(f"Parent directory traversal rejected: {rel_path}")
+
+    run_dir_resolved = Path(run_dir).resolve()
+    target_resolved = (run_dir_resolved / rel_path).resolve()
+
+    try:
+        common = os.path.commonpath([str(run_dir_resolved), str(target_resolved)])
+    except ValueError as e:
+        raise PathEscapeError(f"Drive mismatch or invalid path: {e}")
+
+    if common != str(run_dir_resolved):
+        raise PathEscapeError(f"Path escape detected: {rel_path} escapes {run_dir}")
+
+    target_resolved.parent.mkdir(parents=True, exist_ok=True)
+    with open(target_resolved, "w", encoding="utf-8", newline="\n") as f:
+        f.write(text)
+
+    return str(target_resolved)
+
+
+def ledger(path: str | Path) -> str:
+    """Parse a written python source file with ast and return a compact signature ledger."""
+    path = Path(path)
+    if not path.exists():
+        return f"File: {path.name} (not found)\n"
+
+    try:
+        source = path.read_text(encoding="utf-8")
+        tree = ast.parse(source, filename=str(path))
+    except Exception as e:
+        return f"File: {path.name} (parse error: {e})\n"
+
+    lines = [f"File: {path.name}"]
+
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef):
+            bases = [ast.unparse(b) for b in node.bases]
+            base_str = f"({', '.join(bases)})" if bases else ""
+            lines.append(f"  class {node.name}{base_str}:")
+
+            # Look for self.attr = ClassName(...) inside __init__
+            instantiations = []
+            for item in node.body:
+                if isinstance(item, ast.FunctionDef) and item.name == "__init__":
+                    for stmt in item.body:
+                        if isinstance(stmt, ast.Assign):
+                            for target in stmt.targets:
+                                if (
+                                    isinstance(target, ast.Attribute)
+                                    and isinstance(target.value, ast.Name)
+                                    and target.value.id == "self"
+                                ):
+                                    if isinstance(stmt.value, ast.Call):
+                                        instantiations.append(f"    self.{target.attr} = {ast.unparse(stmt.value)}")
+
+            for inst in instantiations:
+                lines.append(inst)
+
+            # Look for methods and properties
+            for item in node.body:
+                if isinstance(item, ast.FunctionDef):
+                    is_prop = any(
+                        (isinstance(d, ast.Name) and d.id == "property")
+                        for d in item.decorator_list
+                    )
+                    prefix = "    @property def " if is_prop else "    def "
+                    args_list = [a.arg for a in item.args.args]
+                    args_str = ", ".join(args_list)
+                    ret_str = f" -> {ast.unparse(item.returns)}" if item.returns else ""
+                    lines.append(f"{prefix}{item.name}({args_str}){ret_str}")
+
+        elif isinstance(node, ast.FunctionDef):
+            args_list = [a.arg for a in node.args.args]
+            args_str = ", ".join(args_list)
+            ret_str = f" -> {ast.unparse(node.returns)}" if node.returns else ""
+            lines.append(f"  def {node.name}({args_str}){ret_str}")
+
+    return "\n".join(lines) + "\n"
+
+
+def build_file_prompt(contract: dict, file_entry: dict, ledger_text: str = "") -> str:
+    """Build generic implementation prompt for a single file using contract slice and earlier file ledger."""
+    file_path = file_entry.get("path", "")
+    purpose = file_entry.get("purpose", "")
+
+    # Slice contract: find classes assigned to this file
+    classes = [c for c in contract.get("classes", []) if c.get("file") == file_path]
+
+    # Additional slice info for specific modules
+    app_methods = contract.get("app_methods", []) if file_path == "app.py" else []
+    states = contract.get("states", []) if file_path in ("app.py", "models.py") else []
+    transitions = contract.get("transitions", []) if file_path in ("app.py", "models.py") else []
+    smoke_steps = contract.get("smoke_steps", []) if file_path == "app.py" else []
+    entrypoints = contract.get("entrypoints", []) if file_path == "main.py" else []
+    forbidden_names = contract.get("forbidden_names", [])
+
+    prompt_lines = [
+        f"You are implementing the file '{file_path}' for a standalone Windows desktop application.",
+        f"Goal: {purpose}",
+        "",
+        "### CONSTRAINTS & CODING RULES:",
+        "1. Dependencies: Python 3.12 Standard Library ONLY (e.g. tkinter, json, math, random, datetime, sys, os, pathlib). No external pip packages.",
+        "2. Exact Fidelity: Implement all classes, attributes, methods, parameters, and return types exactly as specified in the contract slice.",
+        "3. Method Kinds & Signatures: Follow exact method kinds (method, property, staticmethod) and naming (snake_case).",
+        "4. Production Quality: Write full, complete, working production implementations. NO placeholders, NO 'pass' stubs, NO 'TODO' comments.",
+        f"5. Tkinter Name Protection: Do not shadow Tkinter widget methods (avoid names like {', '.join(forbidden_names[:10])}).",
+    ]
+
+    imports = file_entry.get("imports", [])
+    if imports:
+        prompt_lines.append(f"6. Module Imports: Import from earlier modules: {', '.join(imports)} (e.g. `from {imports[0]} import ...`).")
+
+    if file_path == "main.py":
+        prompt_lines.extend([
+            "7. Windowed-Mode Print Guard: At the very top of main.py, before any Tkinter imports, include:",
+            "   import sys, os",
+            "   if sys.stdout is None:",
+            "       sys.stdout = open(os.devnull, 'w')",
+            "   if sys.stderr is None:",
+            "       sys.stderr = open(os.devnull, 'w')",
+            "8. Entrypoint: Implement and expose function `create_app(root)` which creates and returns an instance of App(root).",
+            "9. Script Execution: Include standard `if __name__ == '__main__':` block that initializes Tk root, sets window title, calls create_app(root), and calls root.mainloop().",
+        ])
+    elif file_path == "app.py":
+        prompt_lines.extend([
+            "7. GUI Architecture: Use Tkinter Frame management to support clean multi-screen navigation (Main Menu, Play Game, View Score, Update Questions, Help).",
+            "8. Screen Navigation: Implement show_menu(), show_play_game(), show_view_score(), show_update_questions(), show_help(). Each screen method clears the current screen frame and renders its widgets.",
+            "9. Game Play & State: Implement start_play_game(), submit_answer(answer_index), toggle_pause(), end_game(), update_questions(questions). Update Game state ('Playing', 'Paused', 'GameOver') and score appropriately.",
+            "10. Seed Content: Initialize with a default list of Question instances so the game is immediately playable upon launch.",
+        ])
+
+    if ledger_text.strip():
+        prompt_lines.extend([
+            "",
+            "### SIGNATURE LEDGER OF ALREADY IMPLEMENTED FILES:",
+            ledger_text.strip(),
+            "Use the exact signatures, method names, and attributes from earlier files as shown in the ledger above."
+        ])
+
+    prompt_lines.extend([
+        "",
+        "### CONTRACT SLICE FOR THIS FILE:",
+        json.dumps({
+            "file": file_path,
+            "classes": classes,
+            "app_methods": app_methods,
+            "states": states,
+            "transitions": transitions,
+            "smoke_steps": smoke_steps,
+            "entrypoints": entrypoints
+        }, indent=2),
+        "",
+        f"Output the complete source code for '{file_path}' using the write_file tool call or a single python code block."
+    ])
+
+    prompt = "\n".join(prompt_lines)
+    assert "Space Fractions" not in prompt, "Prompt must not contain brand name 'Space Fractions'"
+    return prompt
+
+
+def extract_code_from_response(resp: dict, default_path: str = "") -> tuple[str, str]:
+    """Extract (path, content) from model response. Checks tool_calls first, then fenced code blocks."""
+    # 1. Check tool calls
+    tool_calls = resp.get("tool_calls") or []
+    for tc in tool_calls:
+        fn = tc.get("function", {})
+        if fn.get("name") == "write_file":
+            try:
+                args = json.loads(fn.get("arguments", "{}"))
+                content = args.get("content", "")
+                path = args.get("path", default_path)
+                if content:
+                    return path, content
+            except Exception:
+                pass
+
+    # 2. Fallback: markdown fenced code block in content (select largest if multiple)
+    content = resp.get("content", "")
+    fenced_blocks = re.findall(r'```(?:python)?\s*\n(.*?)```', content, flags=re.DOTALL)
+    if fenced_blocks:
+        largest_block = max(fenced_blocks, key=len)
+        return default_path, largest_block.strip()
+
+    # 3. Fallback: raw Python source in content without backticks
+    if "import " in content or "class " in content or "def " in content:
+        lines = content.strip().split("\n")
+        code_lines = []
+        started = False
+        for line in lines:
+            if not started and (
+                line.startswith("import ")
+                or line.startswith("from ")
+                or line.startswith("class ")
+                or line.startswith("def ")
+                or line.startswith("#")
+            ):
+                started = True
+            if started:
+                code_lines.append(line)
+        if code_lines:
+            return default_path, "\n".join(code_lines).strip()
+
+    return default_path, ""
+
+
+def ensure_windowed_guard(content: str) -> str:
+    """Ensure windowed-mode print guard is present at the top of main.py."""
+    if "sys.stdout is None" in content:
+        return content
+    return WINDOWED_GUARD + "\n" + content
+
+
+def compile_file(file_path: str | Path) -> str | None:
+    """Compile python file with py_compile. Returns error message string if failed, else None."""
+    try:
+        py_compile.compile(str(file_path), doraise=True)
+        return None
+    except py_compile.PyCompileError as e:
+        return str(e)
+
+
+def implement_file(client, contract: dict, file_entry: dict, ledger_text: str, run_dir: str | Path, log_file: str | Path = None) -> tuple[str, str, float]:
+    """Generate, extract, compile, and safely write a single implementation file."""
+    rel_path = file_entry.get("path")
+    max_tokens = 8192 if "app" in rel_path else 4096
+
+    prompt = build_file_prompt(contract, file_entry, ledger_text)
+    messages = [
+        {"role": "system", "content": "You are a senior software engineer producing complete, robust Python implementations."},
+        {"role": "user", "content": prompt}
+    ]
+
+    t0 = time.time()
+    resp = client.chat(messages, tools=WRITE_FILE_TOOL, json_mode=False, max_tokens=max_tokens, thinking=False)
+    elapsed_ms = int((time.time() - t0) * 1000)
+
+    out_path, code = extract_code_from_response(resp, default_path=rel_path)
+
+    # Retry once if extraction yielded empty code
+    if not code.strip():
+        messages.append({"role": "assistant", "content": resp.get("content", "")})
+        messages.append({"role": "user", "content": f"Please provide the complete source code for {rel_path} inside a python code block or write_file tool call."})
+        t0 = time.time()
+        resp2 = client.chat(messages, tools=WRITE_FILE_TOOL, json_mode=False, max_tokens=max_tokens, thinking=False)
+        elapsed_ms += int((time.time() - t0) * 1000)
+        out_path, code = extract_code_from_response(resp2, default_path=rel_path)
+        resp = resp2
+
+    if rel_path == "main.py":
+        code = ensure_windowed_guard(code)
+
+    abs_written = safe_write(run_dir, rel_path, code)
+
+    # Compilation check with ONE targeted retry on failure
+    compile_err = compile_file(abs_written)
+    if compile_err:
+        messages.append({"role": "assistant", "content": code})
+        messages.append({
+            "role": "user",
+            "content": f"The written file {rel_path} failed compilation with error:\n{compile_err}\n"
+                       f"Please fix all syntax and compilation issues and return the complete corrected file."
+        })
+        t0 = time.time()
+        retry_resp = client.chat(messages, tools=WRITE_FILE_TOOL, json_mode=False, max_tokens=max_tokens, thinking=False)
+        elapsed_ms += int((time.time() - t0) * 1000)
+        _, retry_code = extract_code_from_response(retry_resp, default_path=rel_path)
+        if retry_code.strip():
+            if rel_path == "main.py":
+                retry_code = ensure_windowed_guard(retry_code)
+            safe_write(run_dir, rel_path, retry_code)
+            compile_err = compile_file(abs_written)
+            code = retry_code
+            resp = retry_resp
+
+    status = "compiled" if compile_err is None else f"compile_error: {compile_err}"
+    usage = resp.get("usage", {})
+    cost = resp.get("cost", 0.0)
+
+    if log_file:
+        log_entry = {
+            "stage": "implement",
+            "file": rel_path,
+            "prompt_tokens": usage.get("prompt_tokens", 0),
+            "completion_tokens": usage.get("completion_tokens", 0),
+            "cost": cost,
+            "elapsed_ms": elapsed_ms,
+            "status": status
+        }
+        with open(log_file, "a", encoding="utf-8", newline="\n") as f:
+            f.write(json.dumps(log_entry) + "\n")
+
+    return rel_path, code, cost
+
+
+def generate_test_file(client, ledger_text: str, run_dir: str | Path, log_file: str | Path = None) -> tuple[str, float]:
+    """Generate tests/test_game.py via ONE model call using full signature ledger."""
+    test_rel_path = "tests/test_game.py"
+    prompt = (
+        "You are writing a comprehensive unit test suite for a standalone Python desktop application.\n\n"
+        "### SIGNATURE LEDGER OF IMPLEMENTED MODULES:\n"
+        f"{ledger_text}\n\n"
+        "### TEST-WRITING RULES:\n"
+        "1. Standard library `unittest` only. No 3rd-party test runners or packages.\n"
+        "2. Add project root to sys.path at the top of tests/test_game.py:\n"
+        "   import sys, unittest, tkinter as tk\n"
+        "   from pathlib import Path\n"
+        "   repo_dir = Path(__file__).resolve().parent.parent\n"
+        "   if str(repo_dir) not in sys.path:\n"
+        "       sys.path.insert(0, str(repo_dir))\n"
+        "   from models import Game, Question, User, Admin\n"
+        "   from app import App\n"
+        "   from main import create_app\n"
+        "3. Test each public class and public method at least once (Game, Question, User, Admin, App).\n"
+        "4. Test state transitions: pause -> Playing -> Paused -> Playing, and end_game -> GameOver.\n"
+        "5. Test submit_answer with both correct and wrong answer indices.\n"
+        "6. Test admin questions update flow (update_questions).\n"
+        "7. App tests: construct App instance with `root = tk.Tk(); root.withdraw()` and call methods directly.\n"
+        "8. Ensure tests clean up Tkinter root with `root.destroy()` in tearDown.\n\n"
+        "Output the complete source code for `tests/test_game.py` using write_file tool call or python code block."
+    )
+
+    messages = [
+        {"role": "system", "content": "You are a test automation engineer writing clean, robust unittest suites."},
+        {"role": "user", "content": prompt}
+    ]
+
+    t0 = time.time()
+    resp = client.chat(messages, tools=WRITE_FILE_TOOL, json_mode=False, max_tokens=4096, thinking=False)
+    elapsed_ms = int((time.time() - t0) * 1000)
+
+    _, test_code = extract_code_from_response(resp, default_path=test_rel_path)
+    abs_test = safe_write(run_dir, test_rel_path, test_code)
+
+    compile_err = compile_file(abs_test)
+    if compile_err:
+        messages.append({"role": "assistant", "content": test_code})
+        messages.append({
+            "role": "user",
+            "content": f"The test file failed compilation with error:\n{compile_err}\nPlease return corrected unittest code."
+        })
+        t0 = time.time()
+        resp2 = client.chat(messages, tools=WRITE_FILE_TOOL, json_mode=False, max_tokens=4096, thinking=False)
+        elapsed_ms += int((time.time() - t0) * 1000)
+        _, retry_code = extract_code_from_response(resp2, default_path=test_rel_path)
+        if retry_code.strip():
+            safe_write(run_dir, test_rel_path, retry_code)
+            compile_err = compile_file(abs_test)
+            test_code = retry_code
+            resp = resp2
+
+    status = "compiled" if compile_err is None else f"compile_error: {compile_err}"
+    usage = resp.get("usage", {})
+    cost = resp.get("cost", 0.0)
+
+    if log_file:
+        log_entry = {
+            "stage": "generate_tests",
+            "file": test_rel_path,
+            "prompt_tokens": usage.get("prompt_tokens", 0),
+            "completion_tokens": usage.get("completion_tokens", 0),
+            "cost": cost,
+            "elapsed_ms": elapsed_ms,
+            "status": status
+        }
+        with open(log_file, "a", encoding="utf-8", newline="\n") as f:
+            f.write(json.dumps(log_entry) + "\n")
+
+    return test_rel_path, cost
+
+
+def generate_non_code_files(run_dir: str | Path, spec: dict, contract: dict) -> list[str]:
+    """Generate requirements.txt, README.md, and DECISIONS.md in Python without model calls."""
+    written = []
+
+    # 1. requirements.txt
+    req_content = (
+        "# Generated requirements.txt - Standard library only\n"
+        "# Python 3.12+ (tkinter, json, math, random, datetime, pathlib, unittest)\n"
+    )
+    safe_write(run_dir, "requirements.txt", req_content)
+    written.append("requirements.txt")
+
+    # 2. README.md
+    system_name = spec.get("system_name", "Desktop Application")
+    files_list = "\n".join(f"- `{f.get('path')}`: {f.get('purpose')}" for f in contract.get("files", []))
+    readme_content = f"""# {system_name}
+
+Desktop application implementation synthesized by DeepSeek Code Agent.
+
+## Architecture Overview
+- **Target Platform**: Windows Standalone Desktop Application (Python 3.12 & Tkinter).
+- **Dependencies**: Python Standard Library ONLY (zero external pip packages).
+- **Modules**:
+{files_list}
+
+## Running the Application
+```bash
+python main.py
+```
+
+## Running the Test Suite
+```bash
+python -m unittest discover -s tests -v
+```
+"""
+    safe_write(run_dir, "README.md", readme_content)
+    written.append("README.md")
+
+    # 3. DECISIONS.md
+    conflicts = spec.get("conflicts", {})
+    resolution = conflicts.get("resolution", "Desktop application selected per requirements.")
+    decisions_content = f"""# Architectural Decisions
+
+## Platform Resolution
+- **Platform**: Standalone Desktop Application (Windows Tkinter).
+- **Conflict Resolution**: {resolution}
+
+## Naming Convention Standard
+- Naming convention: snake_case throughout; architecture diagram camelCase names are translated at model boundary (parser -> contract).
+"""
+    safe_write(run_dir, "DECISIONS.md", decisions_content)
+    written.append("DECISIONS.md")
+
+    return written
+
+
+def implement_project(client, contract: dict, spec: dict, run_dir: str | Path) -> dict:
+    """Execute complete Phase 6 implementation pipeline conforming to Master Plan v3."""
+    run_dir = Path(run_dir)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    log_file = run_dir / "run_log.jsonl"
+
+    files = sorted(contract.get("files", []), key=lambda x: x.get("order", 0))
+    full_ledger = ""
+    written_files = []
+    total_cost = 0.0
+
+    # 1. Contract files loop
+    for f in files:
+        rel_path, code, cost = implement_file(
+            client=client,
+            contract=contract,
+            file_entry=f,
+            ledger_text=full_ledger,
+            run_dir=run_dir,
+            log_file=log_file
+        )
+        written_files.append(rel_path)
+        total_cost += cost
+        # Update ledger with newly written file
+        file_abs = run_dir / rel_path
+        full_ledger += ledger(file_abs) + "\n"
+
+    # 2. Test generation (ONE model call)
+    test_rel, test_cost = generate_test_file(
+        client=client,
+        ledger_text=full_ledger,
+        run_dir=run_dir,
+        log_file=log_file
+    )
+    written_files.append(test_rel)
+    total_cost += test_cost
+
+    # 3. Non-code files (in Python, no model calls)
+    non_code = generate_non_code_files(run_dir, spec, contract)
+    written_files.extend(non_code)
+
+    return {
+        "run_dir": str(run_dir),
+        "files": written_files,
+        "total_cost": total_cost,
+        "ledger": full_ledger,
+        "log_file": str(log_file)
+    }
