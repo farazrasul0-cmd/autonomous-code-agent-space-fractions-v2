@@ -182,6 +182,10 @@ def check_v3_contract_conformance(run_dir: str | Path, contract: dict) -> list[d
                         for t in node.targets:
                             if isinstance(t, ast.Attribute) and isinstance(t.value, ast.Name) and t.value.id == "self":
                                 assigned_attrs.add(t.attr)
+                    elif isinstance(node, ast.AnnAssign):
+                        t = node.target
+                        if isinstance(t, ast.Attribute) and isinstance(t.value, ast.Name) and t.value.id == "self":
+                            assigned_attrs.add(t.attr)
 
             # Property methods in class
             property_names = {
@@ -306,6 +310,10 @@ def check_v4_call_resolution(run_dir: str | Path) -> list[dict]:
                                 for target in sub.targets:
                                     if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name) and target.value.id == "self":
                                         attrs.add(target.attr)
+                            elif isinstance(sub, ast.AnnAssign):
+                                target = sub.target
+                                if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name) and target.value.id == "self":
+                                    attrs.add(target.attr)
 
                 symbol_table[cname] = {
                     "methods": methods,
@@ -334,6 +342,14 @@ def check_v4_call_resolution(run_dir: str | Path) -> list[dict]:
                                     if isinstance(stmt.value, ast.Call):
                                         if isinstance(stmt.value.func, ast.Name):
                                             assigned_owners[target.attr] = stmt.value.func.id
+                        elif isinstance(stmt, ast.AnnAssign):
+                            target = stmt.target
+                            if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name) and target.value.id == "self":
+                                all_self_assigned.add(target.attr)
+                                # If assigning a constructor call e.g. self.engine: Engine = Engine()
+                                if stmt.value and isinstance(stmt.value, ast.Call):
+                                    if isinstance(stmt.value.func, ast.Name):
+                                        assigned_owners[target.attr] = stmt.value.func.id
 
             # Scan method calls
             for item in class_node.body:

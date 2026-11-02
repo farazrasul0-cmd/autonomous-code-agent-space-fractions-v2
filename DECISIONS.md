@@ -146,7 +146,7 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
 
 - **Conservative Estimate Heuristic**: Estimate heuristic in llm.py is conservative (chars/3 prompt + max_tokens × output price). May block calls at ~50% actual spend. Fix (soft estimate with hard spent guard, OR max_tokens × 0.6 calibrated estimate) MUST be applied before Phase 8. Will be verified against actual usage from Phase 5 live calls.
 - **Measured Estimate Ratio & Soft Guard Update**: Measured estimate ratio from Phase 5 live contract call: 5.15x (est $0.017195 vs actual $0.003336). Phase 5 fix applied: Budget.check() now blocks only on actual spent >= cap, not on estimated cost. Estimate retained for logging and diagnostics.
-- **Source Line Count**: Agent source line count is 2,218 lines vs plan target of ~900. This 2.5x deviation is deliberate and justified by correctness infrastructure (V1-V8 false-positive avoidance, property tolerance, dual budget guards, sanitization, signature ledger). No refactor planned. Every line is covered by a test (51/51 passing).
+- **Source Line Count**: Agent source line count is 3,490 lines (including 700 lines in `src/app.py` for Tkinter GUI front-end) vs plan target of ~900. This deviation is deliberate and justified by correctness infrastructure (V1-V8 false-positive avoidance, AnnAssign tolerance, property tolerance, dual budget guards, sanitization, signature ledger, queue-based GUI). No refactor planned. Every line is covered by a test (60/60 passing).
 - **Source of Truth for Cost**: Per-call usage and cost must be read from runs/<run_id>/run_log.jsonl, not from markdown report tables. Where a report table disagrees with the log, the log wins.
 
 ---
@@ -190,6 +190,22 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
 - **V3 Property Tolerance**: Verification check V3 (`check_v3_contract_conformance`) satisfies contract attribute declarations if either:
   1. `self.<name> = ...` (or `self._<name>`, `self.__<name>`) is assigned in `__init__`, OR
   2. A `@property def <name>` is present in the class body.
+
+---
+
+## 12. Phase 10 GUI Front-End & Detached Execution Architecture
+
+- **V4 Static Resolver Extension**: Extended AST traversal in `src/verify.py` (`check_v4_call_resolution` and `check_v3_contract_conformance`) to treat `ast.AnnAssign` identically to `ast.Assign`, properly recognizing typed attribute declarations (e.g. `self._status_var: tk.StringVar = tk.StringVar()`).
+- **GUI Front-End Standard**: Implemented standard-library-only Tkinter application in `src/app.py`:
+  - API Key entry with masked `show="*"`, visibility toggle, and asynchronous `models(api_key)` testing.
+  - Architecture doc, view, and output directory pickers prefilled with working directory defaults.
+  - Visual 5-stage synthesis cards (`Parse`, `Contract`, `Implement`, `Verify`, `Repair`) with color-coded status badges (`Pending`, `In Progress`, `PASSED`, `FAILED`, `Skipped`).
+  - Thread-safe background execution via `threading.Thread` and `queue.Queue` drained every 100ms by main thread.
+  - Graceful cancellation via `threading.Event` checked at stage boundaries.
+  - Strict log sanitization stripping API key tokens before rendering in scrolled log.
+  - Live budget meters tracking run spend against \$0.15 cap and cumulative spend against \$0.85 cap.
+- **Detached Execution Standard**: Implemented `launch_game(main_path)` using `subprocess.Popen` with `CREATE_NEW_PROCESS_GROUP` on Windows and `DEVNULL` streams with `close_fds=True`, decoupling child game lifecycle from parent GUI. Supports frozen executable (`--run-script`) and source execution.
+- **Verification & Test Coverage**: 60 unit tests passing covering AST `AnnAssign` handling, GUI initialization, queue-based stage updates, detached process spawning, and log sanitization.
 
 
 

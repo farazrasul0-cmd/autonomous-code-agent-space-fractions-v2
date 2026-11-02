@@ -188,6 +188,27 @@ class TestVerify(unittest.TestCase):
         self.assertTrue(len(errors) > 0, "V8 harness must flag crash fixture")
         self.assertTrue(any("Simulated UI crash" in e["message"] for e in errors))
 
+    def test_v4_handles_annotated_assignments(self):
+        """V4 does not flag attributes assigned using type annotations (AnnAssign)."""
+        import tempfile
+        src = (
+            "import tkinter as tk\n"
+            "class Helper:\n"
+            "    def work(self):\n"
+            "        pass\n"
+            "class App:\n"
+            "    def __init__(self):\n"
+            "        self._status_var: tk.StringVar = tk.StringVar(value='Ready')\n"
+            "        self.helper: Helper = Helper()\n"
+            "        self._status_var.set('Running')\n"
+            "        self.helper.work()\n"
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_run_dir = Path(temp_dir)
+            (temp_run_dir / "app.py").write_text(src, encoding="utf-8")
+            errors = check_v4_call_resolution(temp_run_dir)
+            self.assertEqual(errors, [], f"V4 unexpectedly flagged annotated assignments: {errors}")
+
 
 if __name__ == "__main__":
     unittest.main()
