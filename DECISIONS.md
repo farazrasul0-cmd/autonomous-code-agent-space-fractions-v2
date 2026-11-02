@@ -135,10 +135,11 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
 
 ## 7. Operational Parameters & Cost Controls (Phase 4 Updates)
 
+- **Architecture Conflict Resolution**: When architectural documents present contradictory architectural patterns (e.g. cloud microservices, Docker containers, web APIs vs standalone desktop), the standalone desktop Tkinter architecture strictly wins. Cloud, web, container, and distributed elements are cataloged in `spec.json` under `conflicts` and superseded by local desktop components per Master Plan specifications.
+- **Keyword-Based Conflict Detection**: Conflicts detection is keyword-based; a second-input doc mentioning 'Dockerfile' as an optional artifact will NOT trigger the cloud-conflict entry unless active cloud microservices keywords are present. Keywords are explicitly narrowed to `web-based`, `microservices`, `kubernetes`, `redis`, `rabbitmq`, `docker-compose`, and `docker container`.
 - **Phase 4 Live Gate Scope**: Phase 4 live gate was a trivial 39-token call. Real budget behavior measured at Phase 8. If Phase 8 single-run cost > $0.25, drop evaluation to 1+1 per standing directive.
 - **Model Usage Policy**: `deepseek-flash` is available on the official models list but will NOT be used without supervisor approval.
 - **Budget Estimate Heuristic**: Budget estimate uses chars/3 heuristic + max_tokens * output price. This is conservative (assumes all miss, no cache hits).
-- **Keyword-Based Conflict Detection**: Conflicts detection is keyword-based; a second-input doc mentioning 'Dockerfile' as an optional artifact will NOT trigger the cloud-conflict entry. Keywords are explicitly narrowed to `web-based`, `microservices`, `kubernetes`, `redis`, `rabbitmq`, `docker-compose`, and `docker container`.
 
 ---
 
@@ -146,7 +147,7 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
 
 - **Conservative Estimate Heuristic**: Estimate heuristic in llm.py is conservative (chars/3 prompt + max_tokens × output price). May block calls at ~50% actual spend. Fix (soft estimate with hard spent guard, OR max_tokens × 0.6 calibrated estimate) MUST be applied before Phase 8. Will be verified against actual usage from Phase 5 live calls.
 - **Measured Estimate Ratio & Soft Guard Update**: Measured estimate ratio from Phase 5 live contract call: 5.15x (est $0.017195 vs actual $0.003336). Phase 5 fix applied: Budget.check() now blocks only on actual spent >= cap, not on estimated cost. Estimate retained for logging and diagnostics.
-- **Source Line Count**: Agent source line count is 3,490 lines (including 700 lines in `src/app.py` for Tkinter GUI front-end) vs plan target of ~900. This deviation is deliberate and justified by correctness infrastructure (V1-V8 false-positive avoidance, AnnAssign tolerance, property tolerance, dual budget guards, sanitization, signature ledger, queue-based GUI). No refactor planned. Every line is covered by a test (60/60 passing).
+- **Source Line Count**: Agent source line count is 3,679 lines across `src/` (including 723 lines in `src/app.py` for the Tkinter GUI front-end) vs plan target of ~900 lines. This deviation is deliberate and justified by correctness infrastructure (V1-V8 AST static analyzer with false-positive avoidance, `ast.AnnAssign` type-annotation tolerance, property tolerance, dual budget guards, key sanitization, signature ledger extraction, and thread-safe queue-based GUI). No refactor is planned; every line is covered by automated unit tests (61/61 passing).
 - **Source of Truth for Cost**: Per-call usage and cost must be read from runs/<run_id>/run_log.jsonl, not from markdown report tables. Where a report table disagrees with the log, the log wins.
 
 ---
