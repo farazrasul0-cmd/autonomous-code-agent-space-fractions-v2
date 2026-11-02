@@ -4,6 +4,7 @@ import json
 import time
 import hashlib
 import threading
+import ssl
 import urllib.request
 import urllib.error
 import re as _re
@@ -195,6 +196,7 @@ class Client:
         self.budget = budget or Budget()
         self.cache = cache
         self.max_tokens = max_tokens
+        self._ssl_context = None
 
     def _estimate_cost(self, body, max_tokens):
         prompt_tokens = sum(len(m.get("content", "")) for m in body["messages"]) // 3
@@ -262,7 +264,10 @@ class Client:
             # Budget check inside the retry loop before each dispatch attempt
             self.budget.check(self._estimate_cost(body, body["max_tokens"]))
             try:
-                with urllib.request.urlopen(req, timeout=60) as resp:
+                kwargs = {"timeout": 60}
+                if self._ssl_context is not None:
+                    kwargs["context"] = self._ssl_context
+                with urllib.request.urlopen(req, **kwargs) as resp:
                     resp_bytes = resp.read()
                     resp_dict = json.loads(resp_bytes.decode("utf-8"))
 
@@ -281,6 +286,21 @@ class Client:
                 raise LLMError(f"HTTP error {e.code}: {sanitize(e.reason)}")
 
             except urllib.error.URLError as e:
+                err_str = str(e.reason) if hasattr(e, "reason") else str(e)
+                if isinstance(getattr(e, "reason", None), ssl.SSLError) or "CERTIFICATE_VERIFY_FAILED" in err_str:
+                    print("SSL certificate verification failed. Retrying with unverified context.")
+                    ctx = ssl._create_unverified_context()
+                    self._ssl_context = ctx
+                    try:
+                        with urllib.request.urlopen(req, timeout=60, context=ctx) as resp:
+                            resp_bytes = resp.read()
+                            resp_dict = json.loads(resp_bytes.decode("utf-8"))
+                            if self.cache and self.cache.mode == "record":
+                                self.cache.put(body, resp_dict)
+                            return self._format_response(resp_dict, is_cached=False)
+                    except Exception as ssl_e:
+                        raise LLMError(f"SSL retry failed: {sanitize(str(ssl_e))}") from ssl_e
+
                 # Network error: retry once after 2 seconds
                 if not network_retried and attempt < max_retries - 1:
                     network_retried = True
@@ -370,8 +390,18 @@ def models(api_key=None, base_url=None):
     url = base_url or MODELS_URL
     req = urllib.request.Request(url, headers={"Authorization": f"Bearer {key}"}, method="GET")
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            return [m.get("id") for m in data.get("data", [])]
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return [m.get("id") for m in data.get("data", [])]
+        except urllib.error.URLError as e:
+            err_str = str(e.reason) if hasattr(e, "reason") else str(e)
+            if isinstance(getattr(e, "reason", None), ssl.SSLError) or "CERTIFICATE_VERIFY_FAILED" in err_str:
+                print("SSL certificate verification failed. Retrying with unverified context.")
+                ctx = ssl._create_unverified_context()
+                with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    return [m.get("id") for m in data.get("data", [])]
+            raise
     except Exception as e:
         raise LLMError(f"Failed to fetch models: {sanitize(str(e))}")

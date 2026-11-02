@@ -335,6 +335,73 @@ class TestLLM(unittest.TestCase):
         cost_with_hit = budget.calculate_cost(usage_with_hit)
         self.assertAlmostEqual(cost_with_hit, expected_hit_cost, places=8)
 
+    def test_ssl_cert_verification_error_retries_with_unverified_context(self):
+        """Verify chat() retries with an unverified context when CERTIFICATE_VERIFY_FAILED occurs."""
+        import ssl
+        import urllib.error
+
+        call_contexts = []
+        payload = json.dumps({
+            "choices": [{"message": {"content": "ssl recovered", "role": "assistant"}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 10}
+        }).encode("utf-8")
+
+        class MockResp:
+            def read(self):
+                return payload
+            def __enter__(self):
+                return self
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        def mock_urlopen(req, **kwargs):
+            ctx = kwargs.get("context")
+            call_contexts.append(ctx)
+            if len(call_contexts) == 1:
+                raise urllib.error.URLError(ssl.SSLError("CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate"))
+            return MockResp()
+
+        client = Client(api_key="sk-test-key-12345678")
+        with unittest.mock.patch("urllib.request.urlopen", side_effect=mock_urlopen):
+            resp = client.chat([{"role": "user", "content": "hello"}])
+            self.assertEqual(resp["content"], "ssl recovered")
+            self.assertEqual(len(call_contexts), 2)
+            self.assertIsNone(call_contexts[0])
+            self.assertIsNotNone(call_contexts[1])
+
+    def test_models_ssl_fallback(self):
+        """Verify models() retries with an unverified context when CERTIFICATE_VERIFY_FAILED occurs."""
+        import ssl
+        import urllib.error
+        from src.llm import models
+
+        call_contexts = []
+        payload = json.dumps({
+            "data": [{"id": "deepseek-v4-pro"}]
+        }).encode("utf-8")
+
+        class MockResp:
+            def read(self):
+                return payload
+            def __enter__(self):
+                return self
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        def mock_urlopen(req, **kwargs):
+            ctx = kwargs.get("context")
+            call_contexts.append(ctx)
+            if len(call_contexts) == 1:
+                raise urllib.error.URLError("CERTIFICATE_VERIFY_FAILED")
+            return MockResp()
+
+        with unittest.mock.patch("urllib.request.urlopen", side_effect=mock_urlopen):
+            res = models(api_key="sk-test-key-12345678")
+            self.assertEqual(res, ["deepseek-v4-pro"])
+            self.assertEqual(len(call_contexts), 2)
+            self.assertIsNone(call_contexts[0])
+            self.assertIsNotNone(call_contexts[1])
+
 
 if __name__ == "__main__":
     unittest.main()
