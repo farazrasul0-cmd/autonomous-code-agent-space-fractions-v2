@@ -8,7 +8,7 @@
     },
     {
       "path": "app.py",
-      "purpose": "Main application class with UI and use case methods",
+      "purpose": "Application class with UI and game logic",
       "order": 2,
       "imports": [
         "models"
@@ -16,7 +16,7 @@
     },
     {
       "path": "main.py",
-      "purpose": "Entry point: create_app function",
+      "purpose": "Entry point: create_app function and main guard",
       "order": 3,
       "imports": [
         "app"
@@ -66,11 +66,35 @@
           "kind": "method"
         },
         {
-          "name": "viewScore",
+          "name": "view_score",
           "params": [
             "self"
           ],
           "returns": "int",
+          "kind": "method"
+        },
+        {
+          "name": "pause",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "resume",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "game_over",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
           "kind": "method"
         }
       ]
@@ -116,7 +140,7 @@
           "kind": "method"
         },
         {
-          "name": "getPrompt",
+          "name": "get_prompt",
           "params": [
             "self"
           ],
@@ -124,11 +148,19 @@
           "kind": "method"
         },
         {
-          "name": "getOptions",
+          "name": "get_options",
           "params": [
             "self"
           ],
           "returns": "List[str]",
+          "kind": "method"
+        },
+        {
+          "name": "get_answer_index",
+          "params": [
+            "self"
+          ],
+          "returns": "int",
           "kind": "method"
         }
       ]
@@ -162,7 +194,7 @@
           "kind": "method"
         },
         {
-          "name": "playGame",
+          "name": "play_game",
           "params": [
             "self",
             "game"
@@ -171,7 +203,7 @@
           "kind": "method"
         },
         {
-          "name": "viewScore",
+          "name": "view_score",
           "params": [
             "self",
             "game"
@@ -210,127 +242,6 @@
           "kind": "method"
         },
         {
-          "name": "updateQuestions",
-          "params": [
-            "self",
-            "questions"
-          ],
-          "returns": "None",
-          "kind": "method"
-        }
-      ]
-    },
-    {
-      "name": "App",
-      "file": "app.py",
-      "base": null,
-      "attributes": [
-        {
-          "name": "root",
-          "type": "tk.Tk",
-          "visibility": "private"
-        },
-        {
-          "name": "current_user",
-          "type": "User",
-          "visibility": "private"
-        },
-        {
-          "name": "current_game",
-          "type": "Game",
-          "visibility": "private"
-        },
-        {
-          "name": "questions",
-          "type": "List[Question]",
-          "visibility": "private"
-        }
-      ],
-      "properties": [],
-      "methods": [
-        {
-          "name": "__init__",
-          "params": [
-            "self",
-            "root"
-          ],
-          "returns": "None",
-          "kind": "method"
-        },
-        {
-          "name": "show_menu",
-          "params": [
-            "self"
-          ],
-          "returns": "None",
-          "kind": "method"
-        },
-        {
-          "name": "show_play_game",
-          "params": [
-            "self"
-          ],
-          "returns": "None",
-          "kind": "method"
-        },
-        {
-          "name": "show_view_score",
-          "params": [
-            "self"
-          ],
-          "returns": "None",
-          "kind": "method"
-        },
-        {
-          "name": "show_update_questions",
-          "params": [
-            "self"
-          ],
-          "returns": "None",
-          "kind": "method"
-        },
-        {
-          "name": "show_help",
-          "params": [
-            "self"
-          ],
-          "returns": "None",
-          "kind": "method"
-        },
-        {
-          "name": "start_play_game",
-          "params": [
-            "self"
-          ],
-          "returns": "None",
-          "kind": "method"
-        },
-        {
-          "name": "submit_answer",
-          "params": [
-            "self",
-            "answer_index"
-          ],
-          "returns": "None",
-          "kind": "method"
-        },
-        {
-          "name": "toggle_pause",
-          "params": [
-            "self"
-          ],
-          "returns": "None",
-          "kind": "method"
-        },
-        {
-          "name": "end_game",
-          "params": [
-            "self"
-          ],
-          "returns": "None",
-          "kind": "method"
-        },
-        {
           "name": "update_questions",
           "params": [
             "self",
@@ -353,32 +264,32 @@
     {
       "name": "show_menu",
       "signature": "show_menu() -> None",
-      "purpose": "Display main menu"
+      "purpose": "Navigate to main menu screen"
     },
     {
       "name": "show_play_game",
       "signature": "show_play_game() -> None",
-      "purpose": "Display play game screen"
+      "purpose": "Navigate to game screen"
     },
     {
       "name": "show_view_score",
       "signature": "show_view_score() -> None",
-      "purpose": "Display view score screen"
+      "purpose": "Navigate to score screen"
     },
     {
       "name": "show_update_questions",
       "signature": "show_update_questions() -> None",
-      "purpose": "Display update questions screen (admin)"
+      "purpose": "Navigate to admin questions screen"
     },
     {
       "name": "show_help",
       "signature": "show_help() -> None",
-      "purpose": "Display help screen"
+      "purpose": "Navigate to help screen"
     },
     {
       "name": "start_play_game",
       "signature": "start_play_game() -> None",
-      "purpose": "Navigate to play screen (calls show_play_game) and initialize game state"
+      "purpose": "Navigate to play screen and initialize game state"
     },
     {
       "name": "submit_answer",
@@ -388,17 +299,17 @@
     {
       "name": "toggle_pause",
       "signature": "toggle_pause() -> None",
-      "purpose": "Toggle pause/resume game"
+      "purpose": "Toggle pause/resume state of current game"
     },
     {
       "name": "end_game",
       "signature": "end_game() -> None",
-      "purpose": "Transition Game.state to GameOver (trigger for gameOver state transition)"
+      "purpose": "Transition Game.state to GameOver"
     },
     {
       "name": "update_questions",
-      "signature": "update_questions(questions: List[dict]) -> None",
-      "purpose": "Update question bank (admin use case)"
+      "signature": "update_questions(questions: list) -> None",
+      "purpose": "Update questions list (Admin flow)"
     }
   ],
   "states": [
@@ -420,28 +331,32 @@
   ],
   "transitions": [
     {
-      "trigger": "initial",
-      "from": null,
+      "trigger": "start",
+      "method": "start_play_game",
+      "from": "[*]",
       "to": "Playing",
-      "method": null
+      "description": "Start game session"
     },
     {
       "trigger": "pause",
+      "method": "toggle_pause",
       "from": "Playing",
       "to": "Paused",
-      "method": "toggle_pause"
+      "description": "Pause game session"
     },
     {
       "trigger": "resume",
+      "method": "toggle_pause",
       "from": "Paused",
       "to": "Playing",
-      "method": "toggle_pause"
+      "description": "Resume game session"
     },
     {
       "trigger": "gameOver",
+      "method": "end_game",
       "from": "Playing",
       "to": "GameOver",
-      "method": "end_game"
+      "description": "End game session"
     }
   ],
   "smoke_steps": [
@@ -453,62 +368,51 @@
     {
       "call": "show_menu",
       "args": [],
-      "purpose": "Smoke test main menu"
+      "purpose": "Smoke test show_menu"
     },
     {
       "call": "start_play_game",
       "args": [],
-      "purpose": "Smoke test start play game"
+      "purpose": "Smoke test start_play_game"
     },
     {
       "call": "submit_answer",
       "args": [
         0
       ],
-      "purpose": "Smoke test submit answer"
+      "purpose": "Smoke test submit_answer"
     },
     {
       "call": "toggle_pause",
       "args": [],
-      "purpose": "Smoke test toggle pause"
+      "purpose": "Smoke test toggle_pause"
     },
     {
       "call": "end_game",
       "args": [],
-      "purpose": "Smoke test end game"
+      "purpose": "Smoke test end_game"
     },
     {
       "call": "show_view_score",
       "args": [],
-      "purpose": "Smoke test view score"
+      "purpose": "Smoke test show_view_score"
     },
     {
       "call": "show_update_questions",
       "args": [],
-      "purpose": "Smoke test admin update questions screen"
+      "purpose": "Smoke test show_update_questions"
     },
     {
       "call": "update_questions",
       "args": [
-        [
-          {
-            "id": "q1",
-            "prompt": "What is 2+2?",
-            "options": [
-              "3",
-              "4",
-              "5"
-            ],
-            "answer_index": 1
-          }
-        ]
+        []
       ],
-      "purpose": "Smoke test admin update questions"
+      "purpose": "Smoke test update_questions"
     },
     {
       "call": "show_help",
       "args": [],
-      "purpose": "Smoke test help screen"
+      "purpose": "Smoke test show_help"
     }
   ],
   "traceability": [

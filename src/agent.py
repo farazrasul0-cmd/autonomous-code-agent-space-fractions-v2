@@ -93,29 +93,69 @@ def build_contract_prompt(spec):
 ### DESIGN GUIDELINES & CONSTRAINTS:
 1. Target Platform: Standalone desktop application on Windows using Python 3.12 and Tkinter.
 2. Dependencies: Python Standard Library ONLY (e.g. tkinter, json, math, random, datetime, pathlib, unittest). No 3rd-party pip packages.
-3. Architecture Fidelity: Retain every class name, attribute, and method signature specified in the architecture specification.
-4. Method Kinds: Each method must have kind 'method', 'property', or 'staticmethod'.
-5. File Dependencies: Define files in strictly topological dependency order with 'main.py' as the LAST file.
-6. Coverage Mandate: Include every class from the class diagram and every usecase from the use case diagram.
-7. The contract MUST declare all states and transitions from the state diagram under the 'states' and 'transitions' keys. Every transition trigger must match the state diagram triggers.
-8. Administrative Flow: If the specification contains an Admin actor or Update Questions usecase, you MUST include a dedicated smoke step whose purpose or call name contains 'admin' or 'update'.
+3. Architecture Fidelity: Retain every class name, attribute, and method specified in the architecture specification.
+4. Naming Convention: Use snake_case throughout for all method names, function names, and variable names. Translate any camelCase names from diagrams to snake_case at the contract boundary (e.g. viewScore -> view_score, playGame -> play_game, getPrompt -> get_prompt, getOptions -> get_options, updateQuestions -> update_questions).
+5. Method Kinds: Each method must have kind 'method', 'property', or 'staticmethod'.
+6. File Dependencies: Define files in strictly topological dependency order with 'main.py' as the LAST file.
+7. Coverage Mandate: Include every class from the class diagram and every usecase from the use case diagram.
+8. State & Transitions: Declare all states and transitions from the state diagram under 'states' and 'transitions'.
+9. Transition Method Mapping: Every transition in 'transitions' MUST include a 'method' field mapping to an App method:
+   - start -> {{"trigger": "start", "method": "start_play_game", "from": "[*]", "to": "Playing", "description": "Start game session"}}
+   - pause -> {{"trigger": "pause", "method": "toggle_pause", "from": "Playing", "to": "Paused", "description": "Pause game session"}}
+   - resume -> {{"trigger": "resume", "method": "toggle_pause", "from": "Paused", "to": "Playing", "description": "Resume game session"}}
+   - gameOver -> {{"trigger": "gameOver", "method": "end_game", "from": "Playing", "to": "GameOver", "description": "End game session"}}
+10. Administrative Flow: Include a dedicated smoke step for the Admin flow calling 'update_questions'.
 
 ### APPLICATION STRUCTURE (MANDATORY):
 - The project MUST expose `main.create_app(root)` returning an App instance.
-- The App MUST have public methods for every use case and every screen named in the documents.
-- App methods MUST be navigable: show_menu(), show_<screen>(), start_<use_case>(), submit_<action>(), toggle_<state>(), end_game().
-- App methods MUST take zero arguments OR only primitive literals (int index, str value, list of dicts). They MUST NOT take domain objects (User, Game, Question) as parameters, because the harness cannot construct those.
-- smoke_steps MUST be executable directly on the App instance returned by create_app(root) with literal arguments. No identifier strings like 'user' or 'game'.
+- The App class (in app.py) MUST have public methods for all 10 screens and actions (in snake_case):
+  - show_menu(): Navigate to main menu screen
+  - show_play_game(): Navigate to game screen
+  - show_view_score(): Navigate to score screen
+  - show_update_questions(): Navigate to admin questions screen
+  - show_help(): Navigate to help screen
+  - start_play_game(): Navigate to play screen (calls show_play_game) and initialize game state
+  - submit_answer(answer_index: int): Submit answer for current question
+  - toggle_pause(): Toggle pause/resume state of current game
+  - end_game(): Transition Game.state to GameOver (trigger for gameOver state transition)
+  - update_questions(questions: list): Update questions list (Admin flow)
+- App methods MUST take zero arguments OR primitive literals only (int, str, list). No domain object instances as parameters.
 
-### SPECIFIC METHOD & SMOKE STEP SPECIFICATION:
-- 'start_play_game' purpose: "Navigate to play screen (calls show_play_game) and initialize game state"
-- 'end_game': signature "end_game() -> None", purpose: "Transition Game.state to GameOver (trigger for gameOver state transition)"
-- Smoke steps order: include `end_game` with `args: []` after `submit_answer` and `toggle_pause`, before `show_view_score`.
-- gameOver transition: declare with "trigger": "gameOver", "method": "end_game", "from": "Playing", "to": "GameOver".
-- Domain attributes:
-  - 'Game' must include attributes: 'id', 'score', and 'state'.
-  - 'Question' must include attributes: 'id', 'prompt', 'options', and 'answer_index'.
-- Traceability: must map all ClassDiagram classes, all UseCaseDiagram use cases, and all StateDiagram states.
+### DOMAIN CLASSES & METHODS (MANDATORY in models.py):
+- 'Game':
+  - attributes: 'id' (str), 'score' (int), 'state' (str)
+  - methods: __init__(self, id, score), play(self), view_score(self), pause(self), resume(self), game_over(self)
+- 'Question':
+  - attributes: 'id' (str), 'prompt' (str), 'options' (List[str]), 'answer_index' (int)
+  - methods: __init__(self, id, prompt, options, answer_index), get_prompt(self), get_options(self), get_answer_index(self)
+- 'User':
+  - attributes: 'id' (str), 'username' (str)
+  - methods: __init__(self, id, username), play_game(self, game), view_score(self, game)
+- 'Admin':
+  - attributes: 'id' (str), 'username' (str)
+  - methods: __init__(self, id, username), update_questions(self, questions)
+
+### SMOKE STEPS (MANDATORY):
+Executable directly on the App instance returned by create_app(root) with literal arguments in this exact sequence:
+1. create_app with args []
+2. show_menu with args []
+3. start_play_game with args []
+4. submit_answer with args [0]
+5. toggle_pause with args []
+6. end_game with args []
+7. show_view_score with args []
+8. show_update_questions with args []
+9. update_questions with args [[]]
+10. show_help with args []
+
+### TRACEABILITY (MANDATORY):
+- Map all ClassDiagram classes (Game -> Game, Question -> Question, User -> User, Admin -> Admin).
+- Map all UseCaseDiagram use cases:
+  - 'Play Game' -> 'App.start_play_game'
+  - 'View Score' -> 'App.show_view_score'
+  - 'Update Questions' -> 'App.update_questions'
+  - 'View Help' -> 'App.show_help'
+- Map StateDiagram states (Playing -> Game.state == 'Playing', Paused -> Game.state == 'Paused', GameOver -> Game.state == 'GameOver').
 
 ### REQUIRED JSON SCHEMA FORMAT:
 {schema_example}
@@ -173,6 +213,16 @@ def validate_contract(contract, spec):
             else:
                 app_method_names.add(m.get("name"))
 
+        # Required App methods
+        required_app_methods = [
+            "show_menu", "show_play_game", "show_view_score", "show_update_questions",
+            "show_help", "start_play_game", "submit_answer", "toggle_pause",
+            "end_game", "update_questions"
+        ]
+        for ram in required_app_methods:
+            if ram not in app_method_names:
+                problems.append(f"Contract missing required App method: '{ram}'")
+
     # 4. Validate states section against spec
     states = contract.get("states")
     spec_states = spec.get("diagrams", {}).get("StateDiagram", {}).get("states", [])
@@ -203,6 +253,34 @@ def validate_contract(contract, spec):
         for trig in spec_triggers:
             if trig.lower() not in contract_triggers:
                 problems.append(f"Contract missing state transition trigger from spec: '{trig}'")
+
+        # Step 2: Validate transition triggers map to callables
+        app_callables = set(app_method_names) | entrypoint_names | {"create_app"}
+        norm_app_callables = {re.sub(r'[^a-zA-Z0-9]', '', str(m)).lower() for m in app_callables}
+
+        game_callables = set()
+        for c in contract.get("classes", []):
+            if isinstance(c, dict) and c.get("name") == "Game":
+                for m in c.get("methods", []):
+                    if isinstance(m, dict) and m.get("name"):
+                        game_callables.add(m["name"])
+        norm_game_callables = {re.sub(r'[^a-zA-Z0-9]', '', str(m)).lower() for m in game_callables}
+
+        for t in transitions:
+            if isinstance(t, dict):
+                trig = t.get("trigger", "")
+                method = t.get("method")
+                has_app_method = False
+                if method:
+                    norm_method = re.sub(r'[^a-zA-Z0-9]', '', str(method)).lower()
+                    if method in app_callables or norm_method in norm_app_callables:
+                        has_app_method = True
+
+                norm_trig = re.sub(r'[^a-zA-Z0-9]', '', str(trig)).lower()
+                trigger_matches = (norm_trig in norm_app_callables) or (norm_trig in norm_game_callables)
+
+                if not (has_app_method or trigger_matches):
+                    problems.append(f"Transition {trig} has no callable method")
 
     # 6. Validate files list
     files = contract.get("files", [])
@@ -334,20 +412,37 @@ def validate_contract(contract, spec):
                 "but no smoke step covers 'admin' or 'update'."
             )
 
-    # 10. Specific attribute requirements for Game and Question classes
+    # 10. Specific attribute & method requirements for Game and Question classes
+    camel_pattern = re.compile(r'^[a-z]+[A-Z]')
     for c in classes:
         if isinstance(c, dict):
             cname = c.get("name")
+            # Check methods for snake_case
+            for m in c.get("methods", []):
+                if isinstance(m, dict):
+                    mname = m.get("name", "")
+                    if camel_pattern.match(mname):
+                        problems.append(f"Method '{mname}' in class '{cname}' violates snake_case convention.")
+
             if cname == "Game":
                 attrs = [a.get("name") if isinstance(a, dict) else str(a) for a in c.get("attributes", [])]
                 for req_attr in ("id", "score", "state"):
                     if req_attr not in attrs:
                         problems.append(f"Class 'Game' missing required attribute '{req_attr}'.")
+                g_methods = {m.get("name") for m in c.get("methods", []) if isinstance(m, dict)}
+                for rgm in ("__init__", "play", "view_score", "pause", "resume", "game_over"):
+                    if rgm not in g_methods:
+                        problems.append(f"Class 'Game' missing required method '{rgm}'.")
+
             elif cname == "Question":
                 attrs = [a.get("name") if isinstance(a, dict) else str(a) for a in c.get("attributes", [])]
                 for req_attr in ("id", "prompt", "options", "answer_index"):
                     if req_attr not in attrs:
                         problems.append(f"Class 'Question' missing required attribute '{req_attr}'.")
+                q_methods = {m.get("name") for m in c.get("methods", []) if isinstance(m, dict)}
+                for rqm in ("__init__", "get_prompt", "get_options", "get_answer_index"):
+                    if rqm not in q_methods:
+                        problems.append(f"Class 'Question' missing required method '{rqm}'.")
 
     # 11. Ensure main.py is the LAST file in files list
     if files and isinstance(files, list):
@@ -367,7 +462,7 @@ def validate_contract(contract, spec):
             if not any(uc.lower() in te.lower() for te in trace_elems):
                 problems.append(f"Traceability missing UseCaseDiagram usecase '{uc}'.")
 
-    # 13. Ensure end_game is present in app_methods and smoke_steps
+    # 13. Ensure end_game is present in app_methods and smoke_steps (after toggle_pause, before show_view_score)
     if "end_game" not in app_method_names:
         problems.append("Contract missing required 'end_game' in app_methods.")
 
@@ -378,6 +473,14 @@ def validate_contract(contract, spec):
             break
     if not has_end_game_smoke:
         problems.append("Contract missing required 'end_game' smoke step.")
+
+    smoke_calls = [s.get("call") for s in smoke_steps if isinstance(s, dict)]
+    if "end_game" in smoke_calls and "toggle_pause" in smoke_calls:
+        if smoke_calls.index("end_game") < smoke_calls.index("toggle_pause"):
+            problems.append("'end_game' smoke step must be placed after 'toggle_pause'.")
+    if "end_game" in smoke_calls and "show_view_score" in smoke_calls:
+        if smoke_calls.index("end_game") > smoke_calls.index("show_view_score"):
+            problems.append("'end_game' smoke step must be placed before 'show_view_score'.")
 
     # 14. Ensure gameOver transition maps to end_game
     for t in contract.get("transitions", []):

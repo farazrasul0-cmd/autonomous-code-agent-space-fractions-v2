@@ -58,9 +58,8 @@ def make_valid_contract():
     return {
         "files": [
             {"path": "models.py", "purpose": "Domain models", "order": 1, "imports": []},
-            {"path": "services.py", "purpose": "Game logic and administration", "order": 2, "imports": ["models.py"]},
-            {"path": "ui.py", "purpose": "Tkinter GUI interface", "order": 3, "imports": ["services.py", "models.py"]},
-            {"path": "main.py", "purpose": "Application entry point", "order": 4, "imports": ["ui.py"]}
+            {"path": "app.py", "purpose": "Main application class with UI and use case methods", "order": 2, "imports": ["models.py"]},
+            {"path": "main.py", "purpose": "Application entry point", "order": 3, "imports": ["app.py"]}
         ],
         "classes": [
             {
@@ -73,7 +72,14 @@ def make_valid_contract():
                     {"name": "state", "type": "str", "visibility": "private"}
                 ],
                 "properties": [],
-                "methods": [{"name": "play", "params": ["self"], "returns": "None", "kind": "method"}]
+                "methods": [
+                    {"name": "__init__", "params": ["self", "id", "score"], "returns": "None", "kind": "method"},
+                    {"name": "play", "params": ["self"], "returns": "None", "kind": "method"},
+                    {"name": "view_score", "params": ["self"], "returns": "int", "kind": "method"},
+                    {"name": "pause", "params": ["self"], "returns": "None", "kind": "method"},
+                    {"name": "resume", "params": ["self"], "returns": "None", "kind": "method"},
+                    {"name": "game_over", "params": ["self"], "returns": "None", "kind": "method"}
+                ]
             },
             {
                 "name": "Question",
@@ -86,7 +92,12 @@ def make_valid_contract():
                     {"name": "answer_index", "type": "int", "visibility": "private"}
                 ],
                 "properties": [],
-                "methods": [{"name": "getPrompt", "params": ["self"], "returns": "str", "kind": "method"}]
+                "methods": [
+                    {"name": "__init__", "params": ["self", "id", "prompt", "options", "answer_index"], "returns": "None", "kind": "method"},
+                    {"name": "get_prompt", "params": ["self"], "returns": "str", "kind": "method"},
+                    {"name": "get_options", "params": ["self"], "returns": "list", "kind": "method"},
+                    {"name": "get_answer_index", "params": ["self"], "returns": "int", "kind": "method"}
+                ]
             },
             {
                 "name": "User",
@@ -97,7 +108,11 @@ def make_valid_contract():
                     {"name": "username", "type": "str", "visibility": "private"}
                 ],
                 "properties": [],
-                "methods": [{"name": "playGame", "params": ["self", "game"], "returns": "None", "kind": "method"}]
+                "methods": [
+                    {"name": "__init__", "params": ["self", "id", "username"], "returns": "None", "kind": "method"},
+                    {"name": "play_game", "params": ["self", "game"], "returns": "None", "kind": "method"},
+                    {"name": "view_score", "params": ["self", "game"], "returns": "int", "kind": "method"}
+                ]
             },
             {
                 "name": "Admin",
@@ -108,18 +123,48 @@ def make_valid_contract():
                     {"name": "username", "type": "str", "visibility": "private"}
                 ],
                 "properties": [],
-                "methods": [{"name": "updateQuestions", "params": ["self", "questions"], "returns": "None", "kind": "method"}]
+                "methods": [
+                    {"name": "__init__", "params": ["self", "id", "username"], "returns": "None", "kind": "method"},
+                    {"name": "update_questions", "params": ["self", "questions"], "returns": "None", "kind": "method"}
+                ]
+            },
+            {
+                "name": "App",
+                "file": "app.py",
+                "base": None,
+                "attributes": [
+                    {"name": "root", "type": "tk.Tk", "visibility": "private"}
+                ],
+                "properties": [],
+                "methods": [
+                    {"name": "__init__", "params": ["self", "root"], "returns": "None", "kind": "method"},
+                    {"name": "show_menu", "params": ["self"], "returns": "None", "kind": "method"},
+                    {"name": "show_play_game", "params": ["self"], "returns": "None", "kind": "method"},
+                    {"name": "show_view_score", "params": ["self"], "returns": "None", "kind": "method"},
+                    {"name": "show_update_questions", "params": ["self"], "returns": "None", "kind": "method"},
+                    {"name": "show_help", "params": ["self"], "returns": "None", "kind": "method"},
+                    {"name": "start_play_game", "params": ["self"], "returns": "None", "kind": "method"},
+                    {"name": "submit_answer", "params": ["self", "answer_index"], "returns": "None", "kind": "method"},
+                    {"name": "toggle_pause", "params": ["self"], "returns": "None", "kind": "method"},
+                    {"name": "end_game", "params": ["self"], "returns": "None", "kind": "method"},
+                    {"name": "update_questions", "params": ["self", "questions"], "returns": "None", "kind": "method"}
+                ]
             }
         ],
         "entrypoints": [
             {"name": "create_app", "signature": "create_app(root: tk.Tk) -> App", "purpose": "Create and return the App instance"}
         ],
         "app_methods": [
-            {"name": "start_game", "signature": "start_game() -> None", "purpose": "Use case: Play Game"},
-            {"name": "view_score", "signature": "view_score() -> int", "purpose": "Use case: View Score"},
-            {"name": "update_questions", "signature": "update_questions(questions: list) -> None", "purpose": "Use case: Update Questions"},
-            {"name": "show_help", "signature": "show_help() -> None", "purpose": "Use case: View Help"},
-            {"name": "end_game", "signature": "end_game() -> None", "purpose": "Transition Game.state to GameOver (trigger for gameOver state transition)"}
+            {"name": "show_menu", "signature": "show_menu() -> None", "purpose": "Navigate to menu"},
+            {"name": "show_play_game", "signature": "show_play_game() -> None", "purpose": "Navigate to play screen"},
+            {"name": "show_view_score", "signature": "show_view_score() -> None", "purpose": "Navigate to score screen"},
+            {"name": "show_update_questions", "signature": "show_update_questions() -> None", "purpose": "Navigate to questions screen"},
+            {"name": "show_help", "signature": "show_help() -> None", "purpose": "Navigate to help screen"},
+            {"name": "start_play_game", "signature": "start_play_game() -> None", "purpose": "Navigate to play screen and initialize game state"},
+            {"name": "submit_answer", "signature": "submit_answer(answer_index: int) -> None", "purpose": "Submit answer"},
+            {"name": "toggle_pause", "signature": "toggle_pause() -> None", "purpose": "Toggle pause/resume"},
+            {"name": "end_game", "signature": "end_game() -> None", "purpose": "Transition Game.state to GameOver"},
+            {"name": "update_questions", "signature": "update_questions(questions: list) -> None", "purpose": "Update questions"}
         ],
         "states": [
             {"name": "Playing", "owner": "Game", "attribute": "state"},
@@ -127,15 +172,20 @@ def make_valid_contract():
             {"name": "GameOver", "owner": "Game", "attribute": "state"}
         ],
         "transitions": [
-            {"trigger": "pause", "from": "Playing", "to": "Paused"},
-            {"trigger": "resume", "from": "Paused", "to": "Playing"},
+            {"trigger": "start", "method": "start_play_game", "from": "[*]", "to": "Playing"},
+            {"trigger": "pause", "method": "toggle_pause", "from": "Playing", "to": "Paused"},
+            {"trigger": "resume", "method": "toggle_pause", "from": "Paused", "to": "Playing"},
             {"trigger": "gameOver", "method": "end_game", "from": "Playing", "to": "GameOver"}
         ],
         "smoke_steps": [
             {"call": "create_app", "args": [], "purpose": "Smoke test application launch"},
-            {"call": "start_game", "args": [], "purpose": "Smoke test Play Game flow"},
-            {"call": "view_score", "args": [], "purpose": "Smoke test View Score flow"},
+            {"call": "show_menu", "args": [], "purpose": "Smoke test show menu"},
+            {"call": "start_play_game", "args": [], "purpose": "Smoke test Play Game flow"},
+            {"call": "submit_answer", "args": [0], "purpose": "Smoke test submit answer"},
+            {"call": "toggle_pause", "args": [], "purpose": "Smoke test toggle pause"},
             {"call": "end_game", "args": [], "purpose": "Smoke test game over state"},
+            {"call": "show_view_score", "args": [], "purpose": "Smoke test View Score flow"},
+            {"call": "show_update_questions", "args": [], "purpose": "Smoke test update questions screen"},
             {"call": "update_questions", "args": [[]], "purpose": "Smoke test admin update questions flow"},
             {"call": "show_help", "args": [], "purpose": "Smoke test View Help flow"}
         ],
@@ -144,10 +194,13 @@ def make_valid_contract():
             {"diagram_element": "ClassDiagram.Question", "code_symbol": "Question"},
             {"diagram_element": "ClassDiagram.User", "code_symbol": "User"},
             {"diagram_element": "ClassDiagram.Admin", "code_symbol": "Admin"},
-            {"diagram_element": "UseCaseDiagram.Play Game", "code_symbol": "App.start_game"},
-            {"diagram_element": "UseCaseDiagram.View Score", "code_symbol": "App.view_score"},
+            {"diagram_element": "UseCaseDiagram.Play Game", "code_symbol": "App.start_play_game"},
+            {"diagram_element": "UseCaseDiagram.View Score", "code_symbol": "App.show_view_score"},
             {"diagram_element": "UseCaseDiagram.Update Questions", "code_symbol": "App.update_questions"},
-            {"diagram_element": "UseCaseDiagram.View Help", "code_symbol": "App.show_help"}
+            {"diagram_element": "UseCaseDiagram.View Help", "code_symbol": "App.show_help"},
+            {"diagram_element": "StateDiagram.Playing", "code_symbol": "Game.state == 'Playing'"},
+            {"diagram_element": "StateDiagram.Paused", "code_symbol": "Game.state == 'Paused'"},
+            {"diagram_element": "StateDiagram.GameOver", "code_symbol": "Game.state == 'GameOver'"}
         ]
     }
 
@@ -288,6 +341,20 @@ class TestContract(unittest.TestCase):
         ]
         problems2 = validate_contract(contract2, self.spec)
         self.assertTrue(any("pause" in p for p in problems2), f"Expected missing trigger 'pause' error, got: {problems2}")
+
+    def test_rejects_transition_without_callable(self):
+        """Step 2: Reject contract where a transition trigger has no matching method on App or Game."""
+        contract = make_valid_contract()
+        contract["transitions"].append({
+            "trigger": "unknown_teleport",
+            "from": "Playing",
+            "to": "GameOver"
+        })
+        problems = validate_contract(contract, self.spec)
+        self.assertTrue(
+            any("Transition unknown_teleport has no callable method" in p for p in problems),
+            f"Expected transition callable error, got: {problems}"
+        )
 
 
 if __name__ == "__main__":
