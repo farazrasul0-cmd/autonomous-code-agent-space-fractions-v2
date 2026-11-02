@@ -676,7 +676,7 @@ def ledger(path: str | Path) -> str:
     return "\n".join(lines) + "\n"
 
 
-def build_file_prompt(contract: dict, file_entry: dict, ledger_text: str = "") -> str:
+def build_file_prompt(contract: dict, file_entry: dict, ledger_text: str = "", spec: dict = None) -> str:
     """Build generic implementation prompt for a single file using contract slice and earlier file ledger."""
     file_path = file_entry.get("path", "")
     purpose = file_entry.get("purpose", "")
@@ -702,29 +702,30 @@ def build_file_prompt(contract: dict, file_entry: dict, ledger_text: str = "") -
         "3. Method Kinds & Signatures: Follow exact method kinds (method, property, staticmethod) and naming (snake_case).",
         "4. Production Quality: Write full, complete, working production implementations. NO placeholders, NO 'pass' stubs, NO 'TODO' comments.",
         f"5. Tkinter Name Protection: Do not shadow Tkinter widget methods (avoid names like {', '.join(forbidden_names[:10])}).",
+        "6. Private Attribute Convention: Use single-underscore (_name) for private attributes in __init__, NOT double-underscore (__name). Double underscore triggers Python name mangling which breaks cross-module attribute access. Example: `self._state = 'Playing'`, not `self.__state = 'Playing'`.",
     ]
 
     imports = file_entry.get("imports", [])
     if imports:
-        prompt_lines.append(f"6. Module Imports: Import from earlier modules: {', '.join(imports)} (e.g. `from {imports[0]} import ...`).")
+        prompt_lines.append(f"7. Module Imports: Import from earlier modules: {', '.join(imports)} (e.g. `from {imports[0]} import ...`).")
 
     if file_path == "main.py":
         prompt_lines.extend([
-            "7. Windowed-Mode Print Guard: At the very top of main.py, before any Tkinter imports, include:",
+            "8. Windowed-Mode Print Guard: At the very top of main.py, before any Tkinter imports, include:",
             "   import sys, os",
             "   if sys.stdout is None:",
             "       sys.stdout = open(os.devnull, 'w')",
             "   if sys.stderr is None:",
             "       sys.stderr = open(os.devnull, 'w')",
-            "8. Entrypoint: Implement and expose function `create_app(root)` which creates and returns an instance of App(root).",
-            "9. Script Execution: Include standard `if __name__ == '__main__':` block that initializes Tk root, sets window title, calls create_app(root), and calls root.mainloop().",
+            "9. Entrypoint: Implement and expose function `create_app(root)` which creates and returns an instance of App(root).",
+            "10. Script Execution: Include standard `if __name__ == '__main__':` block that initializes Tk root, sets window title, calls create_app(root), and calls root.mainloop().",
         ])
     elif file_path == "app.py":
         prompt_lines.extend([
-            "7. GUI Architecture: Use Tkinter Frame management to support clean multi-screen navigation (Main Menu, Play Game, View Score, Update Questions, Help).",
-            "8. Screen Navigation: Implement show_menu(), show_play_game(), show_view_score(), show_update_questions(), show_help(). Each screen method clears the current screen frame and renders its widgets.",
-            "9. Game Play & State: Implement start_play_game(), submit_answer(answer_index), toggle_pause(), end_game(), update_questions(questions). Update Game state ('Playing', 'Paused', 'GameOver') and score appropriately.",
-            "10. Seed Content: Initialize with a default list of Question instances so the game is immediately playable upon launch.",
+            "8. GUI Architecture: Use Tkinter Frame management to support clean multi-screen navigation (Main Menu, Play Game, View Score, Update Questions, Help).",
+            "9. Screen Navigation: Implement show_menu(), show_play_game(), show_view_score(), show_update_questions(), show_help(). Each screen method clears the current screen frame and renders its widgets.",
+            "10. Game Play & State: Implement start_play_game(), submit_answer(answer_index), toggle_pause(), end_game(), update_questions(questions). Update Game state ('Playing', 'Paused', 'GameOver') and score appropriately.",
+            "11. Seed Content: Initialize with a default list of Question instances so the game is immediately playable upon launch.",
         ])
 
     if ledger_text.strip():
@@ -733,6 +734,15 @@ def build_file_prompt(contract: dict, file_entry: dict, ledger_text: str = "") -
             "### SIGNATURE LEDGER OF ALREADY IMPLEMENTED FILES:",
             ledger_text.strip(),
             "Use the exact signatures, method names, and attributes from earlier files as shown in the ledger above."
+        ])
+
+    # Fix A: Include system_name dynamically if spec is provided
+    if spec and spec.get("system_name"):
+        sys_name = spec.get("system_name")
+        prompt_lines.extend([
+            "",
+            f"SYSTEM NAME: {sys_name}",
+            "Use this system name as the window title, help screen header, and README title. Do not invent a different name."
         ])
 
     prompt_lines.extend([
@@ -752,7 +762,6 @@ def build_file_prompt(contract: dict, file_entry: dict, ledger_text: str = "") -
     ])
 
     prompt = "\n".join(prompt_lines)
-    assert "Space Fractions" not in prompt, "Prompt must not contain brand name 'Space Fractions'"
     return prompt
 
 
@@ -817,12 +826,12 @@ def compile_file(file_path: str | Path) -> str | None:
         return str(e)
 
 
-def implement_file(client, contract: dict, file_entry: dict, ledger_text: str, run_dir: str | Path, log_file: str | Path = None) -> tuple[str, str, float]:
+def implement_file(client, contract: dict, file_entry: dict, ledger_text: str, run_dir: str | Path, log_file: str | Path = None, spec: dict = None) -> tuple[str, str, float]:
     """Generate, extract, compile, and safely write a single implementation file."""
     rel_path = file_entry.get("path")
     max_tokens = 8192 if "app" in rel_path else 4096
 
-    prompt = build_file_prompt(contract, file_entry, ledger_text)
+    prompt = build_file_prompt(contract, file_entry, ledger_text, spec=spec)
     messages = [
         {"role": "system", "content": "You are a senior software engineer producing complete, robust Python implementations."},
         {"role": "user", "content": prompt}
@@ -1041,7 +1050,8 @@ def implement_project(client, contract: dict, spec: dict, run_dir: str | Path) -
             file_entry=f,
             ledger_text=full_ledger,
             run_dir=run_dir,
-            log_file=log_file
+            log_file=log_file,
+            spec=spec
         )
         written_files.append(rel_path)
         total_cost += cost

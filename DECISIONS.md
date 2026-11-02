@@ -158,3 +158,20 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
   - `smoke_steps` call names
   - `traceability` code_symbol references (`App.update_questions`, `App.start_play_game`, etc.)
 
+---
+
+## 10. Phase 7 Prompt Directives & Verification Architecture
+
+- **Fix A — Generic System Name Binding**: `build_file_prompt()` injects `SYSTEM NAME: {spec["system_name"]}` derived generically from input documents by `src/parser.py`. Directs the code generation prompt to use this title for the window title, help screen header, and README title, preventing brand drift or hardcoding.
+- **Fix B — Single-Underscore Private Attributes Standard**: `build_file_prompt()` explicitly enforces single leading underscores (`self._state`) for private attributes, strictly forbidding double leading underscores (`self.__attr`). This eliminates Python name mangling (`_Class__attr`) that caused `AttributeError` during public attribute access in `runs/run_001` unit tests and harness smoke steps.
+- **V1–V8 Verification Checks**:
+  - **V1 (File Presence)**: Checks all required contract files and tests directory exist.
+  - **V2 (Compilation)**: Validates standard AST compilation (`compile(tree, mode="exec")`) on all `.py` files.
+  - **V3 (Contract Conformance)**: Validates classes, methods, signatures, and attribute availability while tolerating internal private attributes and name-mangled variants.
+  - **V4 (Static Call Resolution)**: Static AST analysis detecting cross-file method dispatch errors, unassigned instance attribute owners, and attribute-called-as-method errors without false positives on dynamic calls.
+  - **V5 (Tkinter Collision Guard)**: AST inspection detecting method name collisions with `tkinter.Misc` and widget base classes (e.g. `update`, `pack`, `grid`).
+  - **V6 (Import Boundaries)**: Ensures only Python standard library and local package modules are imported, blocking unapproved third-party dependencies.
+  - **V7 (Test Execution)**: Subprocess execution of `python -m unittest discover` reporting structured failures and stack traces.
+  - **V8 (Dynamic UI Harness)**: Subprocess execution of `src/harness.py` exercising `create_app(root)` and all smoke steps with `root.withdraw()`, exception hooking via `report_callback_exception`, and a 30-second watchdog timer.
+
+

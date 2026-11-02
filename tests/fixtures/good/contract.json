@@ -1,0 +1,54 @@
+{
+  "files": [
+    {"path": "models.py", "order": 1, "purpose": "Counter domain model"},
+    {"path": "engine.py", "order": 2, "purpose": "Engine logic"},
+    {"path": "ui.py", "order": 3, "purpose": "Tkinter UI frame"},
+    {"path": "main.py", "order": 4, "purpose": "Application entrypoint"}
+  ],
+  "classes": [
+    {
+      "name": "Counter",
+      "file": "models.py",
+      "base": null,
+      "attributes": [{"name": "_count", "type": "int"}],
+      "methods": [
+        {"name": "__init__", "params": ["self"]},
+        {"name": "increment", "params": ["self"]},
+        {"name": "get_count", "params": ["self"]}
+      ]
+    },
+    {
+      "name": "Engine",
+      "file": "engine.py",
+      "base": null,
+      "attributes": [{"name": "counter", "type": "Counter"}],
+      "methods": [
+        {"name": "__init__", "params": ["self", "counter"]},
+        {"name": "run", "params": ["self"]}
+      ]
+    },
+    {
+      "name": "UiFrame",
+      "file": "ui.py",
+      "base": "tk.Frame",
+      "attributes": [
+        {"name": "counter", "type": "Counter"},
+        {"name": "engine", "type": "Engine"}
+      ],
+      "methods": [
+        {"name": "__init__", "params": ["self", "master"]},
+        {"name": "execute_run", "params": ["self"]}
+      ]
+    }
+  ],
+  "entrypoints": [
+    {"name": "create_app", "signature": "create_app(root: tk.Tk) -> UiFrame"}
+  ],
+  "app_methods": [
+    {"name": "execute_run"}
+  ],
+  "smoke_steps": [
+    {"call": "create_app", "args": []},
+    {"call": "execute_run", "args": []}
+  ]
+}

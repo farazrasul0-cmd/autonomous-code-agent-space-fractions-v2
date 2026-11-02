@@ -1,0 +1,9 @@
+{
+  "files": [{"path": "main.py", "order": 1}],
+  "classes": [],
+  "entrypoints": [{"name": "create_app"}],
+  "app_methods": [{"name": "start_play_game"}],
+  "smoke_steps": [
+    {"call": "start_play_game", "args": []}
+  ]
+}

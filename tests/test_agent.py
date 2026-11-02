@@ -113,6 +113,12 @@ class TestAgent(unittest.TestCase):
         self.assertIn("Domain models", prompt)
         self.assertIn("File: prev.py", prompt)
         self.assertIn("Helper", prompt)
+        self.assertIn("single-underscore (_name)", prompt)
+
+        # Fix A: verify dynamic injection when spec is provided
+        prompt_with_spec = build_file_prompt(contract, file_entry, ledger_sample, spec={"system_name": "Dynamic System"})
+        self.assertIn("SYSTEM NAME: Dynamic System", prompt_with_spec)
+        self.assertIn("Use this system name as the window title", prompt_with_spec)
 
     def test_extract_code_from_tool_call(self):
         """Verify extraction from write_file tool_calls response."""
