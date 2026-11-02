@@ -703,6 +703,28 @@ def build_file_prompt(contract: dict, file_entry: dict, ledger_text: str = "", s
         "4. Production Quality: Write full, complete, working production implementations. NO placeholders, NO 'pass' stubs, NO 'TODO' comments.",
         f"5. Tkinter Name Protection: Do not shadow Tkinter widget methods (avoid names like {', '.join(forbidden_names[:10])}).",
         "6. Private Attribute Convention: Use single-underscore (_name) for private attributes in __init__, NOT double-underscore (__name). Double underscore triggers Python name mangling which breaks cross-module attribute access. Example: `self._state = 'Playing'`, not `self.__state = 'Playing'`.",
+        "",
+        "# ATTRIBUTE IMPLEMENTATION (Rule 1)",
+        "For every attribute declared in the contract for a class, generate:",
+        "  1. Internal storage in __init__: self._<name> = <initial_value>",
+        "  2. A public @property <name> returning self._<name>",
+        "  3. A @<name>.setter accepting value and setting self._<name> = value",
+        "Always add BOTH getter and setter, regardless of contract \"visibility\".",
+        "This allows cross-module access such as obj.state, obj.score += 1, obj.username.",
+        "",
+        "# NO MODAL DIALOGS IN SMOKE-TESTED METHODS (Rule 2)",
+        "For any method whose name appears in contract[\"smoke_steps\"] (directly or transitively via a smoke-called method), do NOT call messagebox.showinfo, showwarning, showerror, askstring, askyesno, or any other modal dialog. Use non-blocking feedback: update a status label, log to a widget, or schedule via root.after(0, ...). Modal dialogs are permitted ONLY in methods unreachable from any smoke step.",
+        "",
+        "# TEST SURFACE RESTRICTION (Rule 3)",
+        "Applies to the single test-generation call:",
+        "Test ONLY:",
+        "  - App methods listed in app_methods",
+        "  - App attributes declared in contract's App class attributes (root, current_user, current_game, questions)",
+        "  - Methods and attributes of Game, Question, User, Admin as declared in their contract classes (plus their properties/accessors)",
+        "Do NOT invent attributes like current_question, current_frame, game.",
+        "To reach the current question after start_play_game, use app.questions[0].",
+        "To reach the game, use app.current_game.",
+        "If a test needs a surface not in the contract, use an existing accessor or test indirectly.",
     ]
 
     imports = file_entry.get("imports", [])
@@ -923,6 +945,15 @@ def generate_test_file(client, ledger_text: str, run_dir: str | Path, log_file: 
         "6. Test admin questions update flow (update_questions).\n"
         "7. App tests: construct App instance with `root = tk.Tk(); root.withdraw()` and call methods directly.\n"
         "8. Ensure tests clean up Tkinter root with `root.destroy()` in tearDown.\n\n"
+        "# TEST SURFACE RESTRICTION (Rule 3)\n"
+        "Test ONLY:\n"
+        "  - App methods listed in app_methods\n"
+        "  - App attributes declared in contract's App class attributes (root, current_user, current_game, questions)\n"
+        "  - Methods and attributes of Game, Question, User, Admin as declared in their contract classes (plus their properties/accessors)\n"
+        "Do NOT invent attributes like current_question, current_frame, game.\n"
+        "To reach the current question after start_play_game, use app.questions[0].\n"
+        "To reach the game, use app.current_game.\n"
+        "If a test needs a surface not in the contract, use an existing accessor or test indirectly.\n\n"
         "Output the complete source code for `tests/test_game.py` using write_file tool call or python code block."
     )
 

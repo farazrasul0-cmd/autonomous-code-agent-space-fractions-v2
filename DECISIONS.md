@@ -174,4 +174,20 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
   - **V7 (Test Execution)**: Subprocess execution of `python -m unittest discover` reporting structured failures and stack traces.
   - **V8 (Dynamic UI Harness)**: Subprocess execution of `src/harness.py` exercising `create_app(root)` and all smoke steps with `root.withdraw()`, exception hooking via `report_callback_exception`, and a 30-second watchdog timer.
 
+---
+
+## 11. Phase 8 Code Generation Rules & Property Tolerance
+
+- **Rule 1 (Attribute Implementation)**: For every attribute declared in the contract for a class, generator must emit internal storage in `__init__` (`self._<name> = <initial_value>`), a public `@property <name>` returning `self._<name>`, and a `@<name>.setter` accepting value and updating `self._<name> = value`. Enforced across all classes regardless of contract visibility to allow cross-module and test access.
+- **Rule 2 (No Modal Dialogs in Smoke-Tested Methods)**: Methods appearing in `smoke_steps` (or called transitively from them) must never invoke blocking modal dialogs (`messagebox.showinfo`, `showwarning`, `showerror`, `askstring`, `askyesno`). Non-blocking feedback (status label, widget logging, or scheduled callbacks via `root.after(0, ...)`) must be used instead.
+- **Rule 3 (Test Surface Restriction)**: The single test generation call must restrict test assertions strictly to declared contract surfaces:
+  - App methods listed in `app_methods`
+  - App attributes declared in contract's App class (`root`, `current_user`, `current_game`, `questions`)
+  - Methods and attributes of `Game`, `Question`, `User`, `Admin` declared in contract
+  - Forbids inventing undeclared attributes (`current_question`, `current_frame`, `game`).
+- **V3 Property Tolerance**: Verification check V3 (`check_v3_contract_conformance`) satisfies contract attribute declarations if either:
+  1. `self.<name> = ...` (or `self._<name>`, `self.__<name>`) is assigned in `__init__`, OR
+  2. A `@property def <name>` is present in the class body.
+
+
 

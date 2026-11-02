@@ -173,7 +173,7 @@ def check_v3_contract_conformance(run_dir: str | Path, contract: dict) -> list[d
                         "message": f"Class '{cname}' base mismatch: expected {expected_base}, got {actual_bases}"
                     })
 
-            # 2. Attributes check: gather all self.<attr> assignments in __init__
+            # 2. Attributes check: gather all self.<attr> assignments in __init__ and properties in class
             init_func = next((n for n in c_node.body if isinstance(n, ast.FunctionDef) and n.name == "__init__"), None)
             assigned_attrs = set()
             if init_func:
@@ -183,20 +183,30 @@ def check_v3_contract_conformance(run_dir: str | Path, contract: dict) -> list[d
                             if isinstance(t, ast.Attribute) and isinstance(t.value, ast.Name) and t.value.id == "self":
                                 assigned_attrs.add(t.attr)
 
+            # Property methods in class
+            property_names = {
+                n.name for n in c_node.body
+                if isinstance(n, ast.FunctionDef) and any(isinstance(d, ast.Name) and d.id == "property" for d in n.decorator_list)
+            }
+
             for a in c.get("attributes", []):
                 aname = a["name"] if isinstance(a, dict) else a
                 clean_name = aname.lstrip("_")
-                # Tolerance rule: self.name, self._name, self.__name, or any suffix matching clean_name
-                matched = any(
-                    attr == aname or attr == f"_{clean_name}" or attr == f"__{clean_name}" or attr.lstrip("_") == clean_name
-                    for attr in assigned_attrs
+                # Tolerance rule: self.name, self._name, self.__name, or @property def <name> present in class body
+                matched = (
+                    any(
+                        attr == aname or attr == f"_{clean_name}" or attr == f"__{clean_name}" or attr.lstrip("_") == clean_name
+                        for attr in assigned_attrs
+                    )
+                    or aname in property_names
+                    or clean_name in property_names
                 )
                 if not matched:
                     errors.append({
                         "check": "V3",
                         "file": rel_path,
                         "line": c_node.lineno,
-                        "message": f"Attribute '{aname}' of class '{cname}' is not assigned in __init__"
+                        "message": f"Attribute '{aname}' of class '{cname}' is not assigned in __init__ or defined as @property"
                     })
 
             # 3. Methods check

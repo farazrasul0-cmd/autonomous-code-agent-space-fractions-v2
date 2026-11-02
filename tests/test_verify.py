@@ -140,6 +140,33 @@ class TestVerify(unittest.TestCase):
         errors = check_v3_contract_conformance(good_dir, contract)
         self.assertEqual(errors, [])
 
+    def test_v3_accepts_property_backed_attribute(self):
+        """Attribute declared in contract is satisfied if @property <name> exists."""
+        import tempfile
+        contract = {
+            "classes": [{
+                "name": "Widget", "file": "w.py", "base": None,
+                "attributes": [{"name": "state", "type": "str", "visibility": "private"}],
+                "properties": [], "methods": []
+            }]
+        }
+        src = (
+            "class Widget:\n"
+            "    def __init__(self):\n"
+            "        self._state = 'x'\n"
+            "    @property\n"
+            "    def state(self):\n"
+            "        return self._state\n"
+            "    @state.setter\n"
+            "    def state(self, value):\n"
+            "        self._state = value\n"
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_run_dir = Path(temp_dir)
+            (temp_run_dir / "w.py").write_text(src, encoding="utf-8")
+            problems = check_v3_contract_conformance(temp_run_dir, contract)
+            self.assertEqual(problems, [], f"V3 flagged property-backed attribute: {problems}")
+
     def test_harness_passes_good_fixture(self):
         """V8 harness passes clean good fixture."""
         good_dir = self.fixtures_dir / "good"
