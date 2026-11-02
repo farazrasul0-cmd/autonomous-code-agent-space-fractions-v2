@@ -209,15 +209,20 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
 
 ---
 
-## 13. Phase 11 Packaging & Clean Machine Verification Architecture
+## 14. Phase 12 Dynamic Contract Generation & 3+1 Multi-Run Evaluation
 
-- **PyInstaller Reproducible Builds**: Automated via `build.ps1` using Python 3.12, PyInstaller 6.22.3, `--noupx`, `--windowed`, and `--add-data "examples;examples"`.
-- **Full Hidden Imports List**: Explicitly bundle 20 required standard library modules (`random`, `dataclasses`, `enum`, `fractions`, `uuid`, `math`, `typing`, `itertools`, `functools`, `collections`, `datetime`, `pathlib`, `copy`, `tkinter`, `tkinter.ttk`, `tkinter.messagebox`, `tkinter.simpledialog`, `tkinter.font`, `unittest`, `unittest.mock`, `unittest.__main__`).
-- **Binary Targets**:
-  - Primary (onedir): `dist/CodeAgent/CodeAgent.exe` (SHA256: `2605D559700622D72E1B72D4AB035AF722E15B0220FF62FF0AA35B0F46E17715`)
-  - Secondary (onefile): `dist/CodeAgentOneFile.exe` (SHA256: `CABC42816A1DE6BF8DFD87B5EE0241CC6289A7C52CF73FDA06C0066F38B2FBDB`)
-- **Windows Sandbox Test Staging**: Staged clean folder `dist/SandboxTest/` containing onedir build `CodeAgent/`, bundled `examples/`, `contract.json`, and `spec.json` for independent operator verification in Windows Sandbox.
-- **Frozen Detached Runner**: `src/app.py` implements `--run-script <path>` allowing the frozen `CodeAgent.exe` to execute synthesized target applications (`main.py`) in detached child processes without launching the parent agent GUI.
+- **Dynamic Run-Directory Contract Generation**: Removed all static dependencies on `repo_root / "contract.json"`. Both `src/agent.py` (CLI) and `src/app.py` (GUI) inspect `run_dir / "contract.json"`. If missing, `build_contract_prompt(spec)` is dispatched to DeepSeek (`json_mode=True`), validated via `validate_contract()`, and written dynamically to `run_dir / "contract.json"`.
+- **Genericity & Transition Resolution**:
+  - `validate_contract()` was generalized to support arbitrary domain architectures. Transition targets and triggers are checked against all methods across all declared classes in `contract["classes"]` (both qualified `Class.method` and unqualified `method`) as well as `app_methods` and entrypoints.
+  - Game-specific validation rules (`Question` attributes, `gameOver` -> `end_game`) are conditionally activated only when Space Fractions domain artifacts are identified in the spec.
+  - `generate_test_file()` dynamically synthesizes unit tests importing classes declared in `contract.json`.
+- **3+1 Multi-Run Evaluation Suite**:
+  - Executed 3 Space Fractions evaluation runs (`eval_sf_1`, `eval_sf_2`, `eval_sf_3`) and 1 Smart To-Do List evaluation run (`eval_todo_1`).
+  - Budget policy: "Professor uncontactable. Per Master Plan p3, assumed strict case ($1 whole-eval). Therefore 3+1 runs were executed."
+- **Live Autonomous Repair Evidence**:
+  - `eval_sf_1`: V8 (Tkinter style error) repaired in Round 3 via autonomous patch to `app.py`.
+  - `eval_todo_1`: V7 (Unit test failure) repaired in Round 2 via autonomous patch to `models.py`, achieving a clean 8/8 PASS across all checks (V1–V8).
+- **Cost Compliance**: Total spend for the 4 evaluation runs is $0.057690. Total cumulative all-time spend across the repository is $0.108033, comfortably below the strict $0.85 ceiling ($0.741967 remaining).
 
 
 

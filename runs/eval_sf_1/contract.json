@@ -1,0 +1,621 @@
+{
+  "files": [
+    {
+      "path": "models.py",
+      "purpose": "Domain model classes: Game, Question, User, Admin",
+      "order": 1,
+      "imports": []
+    },
+    {
+      "path": "app.py",
+      "purpose": "Application class with UI and game logic",
+      "order": 2,
+      "imports": [
+        "models"
+      ]
+    },
+    {
+      "path": "main.py",
+      "purpose": "Entry point: create_app function and main guard",
+      "order": 3,
+      "imports": [
+        "app"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "Game",
+      "file": "models.py",
+      "base": null,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "str",
+          "visibility": "private"
+        },
+        {
+          "name": "score",
+          "type": "int",
+          "visibility": "private"
+        },
+        {
+          "name": "state",
+          "type": "str",
+          "visibility": "private"
+        }
+      ],
+      "properties": [],
+      "methods": [
+        {
+          "name": "__init__",
+          "params": [
+            "self",
+            "id",
+            "score"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "play",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "view_score",
+          "params": [
+            "self"
+          ],
+          "returns": "int",
+          "kind": "method"
+        },
+        {
+          "name": "pause",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "resume",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "game_over",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        }
+      ]
+    },
+    {
+      "name": "Question",
+      "file": "models.py",
+      "base": null,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "str",
+          "visibility": "private"
+        },
+        {
+          "name": "prompt",
+          "type": "str",
+          "visibility": "private"
+        },
+        {
+          "name": "options",
+          "type": "List[str]",
+          "visibility": "private"
+        },
+        {
+          "name": "answer_index",
+          "type": "int",
+          "visibility": "private"
+        }
+      ],
+      "properties": [],
+      "methods": [
+        {
+          "name": "__init__",
+          "params": [
+            "self",
+            "id",
+            "prompt",
+            "options",
+            "answer_index"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "get_prompt",
+          "params": [
+            "self"
+          ],
+          "returns": "str",
+          "kind": "method"
+        },
+        {
+          "name": "get_options",
+          "params": [
+            "self"
+          ],
+          "returns": "List[str]",
+          "kind": "method"
+        },
+        {
+          "name": "get_answer_index",
+          "params": [
+            "self"
+          ],
+          "returns": "int",
+          "kind": "method"
+        }
+      ]
+    },
+    {
+      "name": "User",
+      "file": "models.py",
+      "base": null,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "str",
+          "visibility": "private"
+        },
+        {
+          "name": "username",
+          "type": "str",
+          "visibility": "private"
+        }
+      ],
+      "properties": [],
+      "methods": [
+        {
+          "name": "__init__",
+          "params": [
+            "self",
+            "id",
+            "username"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "play_game",
+          "params": [
+            "self",
+            "game"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "view_score",
+          "params": [
+            "self",
+            "game"
+          ],
+          "returns": "int",
+          "kind": "method"
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "file": "models.py",
+      "base": null,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "str",
+          "visibility": "private"
+        },
+        {
+          "name": "username",
+          "type": "str",
+          "visibility": "private"
+        }
+      ],
+      "properties": [],
+      "methods": [
+        {
+          "name": "__init__",
+          "params": [
+            "self",
+            "id",
+            "username"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "update_questions",
+          "params": [
+            "self",
+            "questions"
+          ],
+          "returns": "None",
+          "kind": "method"
+        }
+      ]
+    }
+  ],
+  "entrypoints": [
+    {
+      "name": "create_app",
+      "signature": "create_app(root: tk.Tk) -> App",
+      "purpose": "Create and return the application instance"
+    }
+  ],
+  "app_methods": [
+    {
+      "name": "show_menu",
+      "signature": "show_menu() -> None",
+      "purpose": "Navigate to main menu screen"
+    },
+    {
+      "name": "show_play_game",
+      "signature": "show_play_game() -> None",
+      "purpose": "Navigate to game screen"
+    },
+    {
+      "name": "show_view_score",
+      "signature": "show_view_score() -> None",
+      "purpose": "Navigate to score screen"
+    },
+    {
+      "name": "show_update_questions",
+      "signature": "show_update_questions() -> None",
+      "purpose": "Navigate to admin questions screen"
+    },
+    {
+      "name": "show_help",
+      "signature": "show_help() -> None",
+      "purpose": "Navigate to help screen"
+    },
+    {
+      "name": "start_play_game",
+      "signature": "start_play_game() -> None",
+      "purpose": "Navigate to play screen and initialize game state"
+    },
+    {
+      "name": "submit_answer",
+      "signature": "submit_answer(answer_index: int) -> None",
+      "purpose": "Submit answer for current question"
+    },
+    {
+      "name": "toggle_pause",
+      "signature": "toggle_pause() -> None",
+      "purpose": "Toggle pause/resume state of current game"
+    },
+    {
+      "name": "end_game",
+      "signature": "end_game() -> None",
+      "purpose": "Transition Game.state to GameOver"
+    },
+    {
+      "name": "update_questions",
+      "signature": "update_questions(questions: list) -> None",
+      "purpose": "Update questions list (Admin flow)"
+    }
+  ],
+  "states": [
+    {
+      "name": "Playing",
+      "owner": "Game",
+      "attribute": "state"
+    },
+    {
+      "name": "Paused",
+      "owner": "Game",
+      "attribute": "state"
+    },
+    {
+      "name": "GameOver",
+      "owner": "Game",
+      "attribute": "state"
+    }
+  ],
+  "transitions": [
+    {
+      "trigger": "start",
+      "method": "start_play_game",
+      "from": "[*]",
+      "to": "Playing",
+      "description": "Start game session"
+    },
+    {
+      "trigger": "pause",
+      "method": "toggle_pause",
+      "from": "Playing",
+      "to": "Paused",
+      "description": "Pause game session"
+    },
+    {
+      "trigger": "resume",
+      "method": "toggle_pause",
+      "from": "Paused",
+      "to": "Playing",
+      "description": "Resume game session"
+    },
+    {
+      "trigger": "gameOver",
+      "method": "end_game",
+      "from": "Playing",
+      "to": "GameOver",
+      "description": "End game session"
+    }
+  ],
+  "smoke_steps": [
+    {
+      "call": "create_app",
+      "args": [],
+      "purpose": "Smoke test app creation"
+    },
+    {
+      "call": "show_menu",
+      "args": [],
+      "purpose": "Smoke test show_menu"
+    },
+    {
+      "call": "start_play_game",
+      "args": [],
+      "purpose": "Smoke test start_play_game"
+    },
+    {
+      "call": "submit_answer",
+      "args": [
+        0
+      ],
+      "purpose": "Smoke test submit_answer"
+    },
+    {
+      "call": "toggle_pause",
+      "args": [],
+      "purpose": "Smoke test toggle_pause"
+    },
+    {
+      "call": "end_game",
+      "args": [],
+      "purpose": "Smoke test end_game"
+    },
+    {
+      "call": "show_view_score",
+      "args": [],
+      "purpose": "Smoke test show_view_score"
+    },
+    {
+      "call": "show_update_questions",
+      "args": [],
+      "purpose": "Smoke test show_update_questions"
+    },
+    {
+      "call": "update_questions",
+      "args": [
+        []
+      ],
+      "purpose": "Smoke test update_questions"
+    },
+    {
+      "call": "show_help",
+      "args": [],
+      "purpose": "Smoke test show_help"
+    }
+  ],
+  "traceability": [
+    {
+      "diagram_element": "ClassDiagram.Game",
+      "code_symbol": "Game"
+    },
+    {
+      "diagram_element": "ClassDiagram.Question",
+      "code_symbol": "Question"
+    },
+    {
+      "diagram_element": "ClassDiagram.User",
+      "code_symbol": "User"
+    },
+    {
+      "diagram_element": "ClassDiagram.Admin",
+      "code_symbol": "Admin"
+    },
+    {
+      "diagram_element": "UseCaseDiagram.Play Game",
+      "code_symbol": "App.start_play_game"
+    },
+    {
+      "diagram_element": "UseCaseDiagram.View Score",
+      "code_symbol": "App.show_view_score"
+    },
+    {
+      "diagram_element": "UseCaseDiagram.Update Questions",
+      "code_symbol": "App.update_questions"
+    },
+    {
+      "diagram_element": "UseCaseDiagram.View Help",
+      "code_symbol": "App.show_help"
+    },
+    {
+      "diagram_element": "StateDiagram.Playing",
+      "code_symbol": "Game.state == 'Playing'"
+    },
+    {
+      "diagram_element": "StateDiagram.Paused",
+      "code_symbol": "Game.state == 'Paused'"
+    },
+    {
+      "diagram_element": "StateDiagram.GameOver",
+      "code_symbol": "Game.state == 'GameOver'"
+    }
+  ],
+  "forbidden_names": [
+    "after",
+    "after_cancel",
+    "after_idle",
+    "anchor",
+    "bbox",
+    "bell",
+    "bind",
+    "bind_all",
+    "bind_class",
+    "bindtags",
+    "cget",
+    "clipboard_append",
+    "clipboard_clear",
+    "clipboard_get",
+    "columnconfigure",
+    "config",
+    "configure",
+    "deletecommand",
+    "destroy",
+    "event_add",
+    "event_delete",
+    "event_generate",
+    "event_info",
+    "focus",
+    "focus_displayof",
+    "focus_force",
+    "focus_get",
+    "focus_lastfor",
+    "focus_set",
+    "forget",
+    "getboolean",
+    "getdouble",
+    "getint",
+    "getvar",
+    "grab_current",
+    "grab_release",
+    "grab_set",
+    "grab_set_global",
+    "grab_status",
+    "grid",
+    "grid_anchor",
+    "grid_bbox",
+    "grid_columnconfigure",
+    "grid_configure",
+    "grid_forget",
+    "grid_info",
+    "grid_location",
+    "grid_propagate",
+    "grid_remove",
+    "grid_rowconfigure",
+    "grid_size",
+    "grid_slaves",
+    "image_names",
+    "image_types",
+    "info",
+    "info_patchlevel",
+    "keys",
+    "lift",
+    "location",
+    "lower",
+    "mainloop",
+    "nametowidget",
+    "option_add",
+    "option_clear",
+    "option_get",
+    "option_readfile",
+    "pack",
+    "pack_configure",
+    "pack_forget",
+    "pack_info",
+    "pack_propagate",
+    "pack_slaves",
+    "place",
+    "place_configure",
+    "place_forget",
+    "place_info",
+    "place_slaves",
+    "propagate",
+    "quit",
+    "register",
+    "rowconfigure",
+    "selection_clear",
+    "selection_get",
+    "selection_handle",
+    "selection_own",
+    "selection_own_get",
+    "send",
+    "setvar",
+    "size",
+    "slaves",
+    "tk_bisque",
+    "tk_focusFollowsMouse",
+    "tk_focusNext",
+    "tk_focusPrev",
+    "tk_setPalette",
+    "tk_strictMotif",
+    "tkraise",
+    "unbind",
+    "unbind_all",
+    "unbind_class",
+    "update",
+    "update_idletasks",
+    "wait_variable",
+    "wait_visibility",
+    "wait_window",
+    "waitvar",
+    "winfo_atom",
+    "winfo_atomname",
+    "winfo_cells",
+    "winfo_children",
+    "winfo_class",
+    "winfo_colormapfull",
+    "winfo_containing",
+    "winfo_depth",
+    "winfo_exists",
+    "winfo_fpixels",
+    "winfo_geometry",
+    "winfo_height",
+    "winfo_id",
+    "winfo_interps",
+    "winfo_ismapped",
+    "winfo_manager",
+    "winfo_name",
+    "winfo_parent",
+    "winfo_pathname",
+    "winfo_pixels",
+    "winfo_pointerx",
+    "winfo_pointerxy",
+    "winfo_pointery",
+    "winfo_reqheight",
+    "winfo_reqwidth",
+    "winfo_rgb",
+    "winfo_rootx",
+    "winfo_rooty",
+    "winfo_screen",
+    "winfo_screencells",
+    "winfo_screendepth",
+    "winfo_screenheight",
+    "winfo_screenmmheight",
+    "winfo_screenmmwidth",
+    "winfo_screenvisual",
+    "winfo_screenwidth",
+    "winfo_server",
+    "winfo_toplevel",
+    "winfo_viewable",
+    "winfo_visual",
+    "winfo_visualid",
+    "winfo_visualsavailable",
+    "winfo_vrootheight",
+    "winfo_vrootwidth",
+    "winfo_vrootx",
+    "winfo_vrooty",
+    "winfo_width",
+    "winfo_x",
+    "winfo_y"
+  ]
+}

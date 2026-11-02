@@ -97,7 +97,14 @@ def build_contract_prompt(spec):
         '}'
     )
 
-    prompt = f"""You are an expert software architect designing an implementation contract for a desktop application.
+    is_space_fractions = (
+        spec.get("system_name") == "Space Fractions"
+        or any(c.get("name") == "Question" for c in classes_info)
+        or any(c.get("name") == "Game" for c in classes_info)
+    )
+
+    if is_space_fractions:
+        prompt = f"""You are an expert software architect designing an implementation contract for a desktop application.
 
 ### DESIGN GUIDELINES & CONSTRAINTS:
 1. Target Platform: Standalone desktop application on Windows using Python 3.12 and Tkinter.
@@ -173,6 +180,52 @@ Executable directly on the App instance returned by create_app(root) with litera
 {json.dumps(architecture_summary, indent=2)}
 
 Output ONLY the complete, valid JSON contract object matching the schema above."""
+    else:
+        # Generic prompt for any desktop application
+        classes_desc = []
+        for c in classes_info:
+            attrs_str = ", ".join(c["attributes"]) if c["attributes"] else "none"
+            methods_str = ", ".join(c["methods"]) if c["methods"] else "none"
+            classes_desc.append(f"- '{c['name']}':\n  - attributes: {attrs_str}\n  - methods: {methods_str}")
+        classes_section = "\n".join(classes_desc)
+
+        usecases_desc = ", ".join(f"'{u}'" for u in usecases)
+        states_desc = ", ".join(f"'{s}'" for s in states)
+        transitions_desc = ", ".join(f"'{t}'" for t in transitions)
+
+        prompt = f"""You are an expert software architect designing an implementation contract for a desktop application.
+
+### ARCHITECTURE SPECIFICATION SUMMARY:
+{json.dumps(architecture_summary, indent=2)}
+
+### DESIGN GUIDELINES & CONSTRAINTS:
+1. Target Platform: Standalone desktop application on Windows using Python 3.12 and Tkinter.
+2. Dependencies: Python Standard Library ONLY (e.g. tkinter, json, math, random, datetime, pathlib, unittest). No 3rd-party pip packages.
+3. Architecture Fidelity: Retain every class name, attribute, and method specified in the architecture specification.
+4. Naming Convention: Use snake_case throughout for all method names, function names, and variable names. Translate any camelCase names from diagrams to snake_case at the contract boundary.
+5. Method Kinds: Each method must have kind 'method', 'property', or 'staticmethod'.
+6. File Dependencies: Define files in strictly topological dependency order with 'main.py' as the LAST file. Typically: models.py (domain classes) -> app.py (App GUI class) -> main.py (entrypoint).
+7. Coverage Mandate: Include every class from the class diagram and every usecase from the use case diagram.
+8. State & Transitions: Declare all states and transitions from the state diagram under 'states' and 'transitions'.
+9. Transition Method Mapping: Every transition in 'transitions' MUST include a 'method' field mapping to a callable method on App or domain class.
+10. Smoke Steps: Provide a sequence of 3 to 10 executable method calls on App verifying primary use cases and screen transitions without blocking modal dialogs.
+11. The project MUST expose `main.create_app(root: tk.Tk) -> App` returning an App instance.
+12. App methods MUST take zero arguments OR primitive literals only (int, str, list). No domain object instances as parameters.
+
+### DOMAIN CLASSES & METHODS:
+{classes_section}
+
+### USE CASES:
+{usecases_desc}
+
+### STATES & TRANSITIONS:
+States: {states_desc}
+Transitions: {transitions_desc}
+
+### REQUIRED JSON SCHEMA FORMAT:
+{schema_example}
+
+Output ONLY the complete, valid JSON contract object matching the schema above."""
 
     # Sanity check: verify no game-specific brand names leaked into the prompt
     assert "Space Fractions" not in prompt, "Contract prompt must not contain game-specific name!"
@@ -223,14 +276,20 @@ def validate_contract(contract, spec):
                 app_method_names.add(m.get("name"))
 
         # Required App methods
-        required_app_methods = [
-            "show_menu", "show_play_game", "show_view_score", "show_update_questions",
-            "show_help", "start_play_game", "submit_answer", "toggle_pause",
-            "end_game", "update_questions"
-        ]
-        for ram in required_app_methods:
-            if ram not in app_method_names:
-                problems.append(f"Contract missing required App method: '{ram}'")
+        is_space_fractions = (
+            spec.get("system_name") == "Space Fractions"
+            or any(c.get("name") == "Question" for c in spec.get("diagrams", {}).get("ClassDiagram", {}).get("classes", []))
+            or any(c.get("name") == "Game" for c in spec.get("diagrams", {}).get("ClassDiagram", {}).get("classes", []))
+        )
+        if is_space_fractions:
+            required_app_methods = [
+                "show_menu", "show_play_game", "show_view_score", "show_update_questions",
+                "show_help", "start_play_game", "submit_answer", "toggle_pause",
+                "end_game", "update_questions"
+            ]
+            for ram in required_app_methods:
+                if ram not in app_method_names:
+                    problems.append(f"Contract missing required App method: '{ram}'")
 
     # 4. Validate states section against spec
     states = contract.get("states")
@@ -267,28 +326,31 @@ def validate_contract(contract, spec):
         app_callables = set(app_method_names) | entrypoint_names | {"create_app"}
         norm_app_callables = {re.sub(r'[^a-zA-Z0-9]', '', str(m)).lower() for m in app_callables}
 
-        game_callables = set()
+        all_class_callables = set()
         for c in contract.get("classes", []):
-            if isinstance(c, dict) and c.get("name") == "Game":
+            if isinstance(c, dict):
+                cname = c.get("name", "")
                 for m in c.get("methods", []):
                     if isinstance(m, dict) and m.get("name"):
-                        game_callables.add(m["name"])
-        norm_game_callables = {re.sub(r'[^a-zA-Z0-9]', '', str(m)).lower() for m in game_callables}
+                        mname = m["name"]
+                        all_class_callables.add(mname)
+                        all_class_callables.add(f"{cname}.{mname}")
+        norm_class_callables = {re.sub(r'[^a-zA-Z0-9]', '', str(m)).lower() for m in all_class_callables}
 
         for t in transitions:
             if isinstance(t, dict):
                 trig = t.get("trigger", "")
                 method = t.get("method")
-                has_app_method = False
+                has_method = False
                 if method:
                     norm_method = re.sub(r'[^a-zA-Z0-9]', '', str(method)).lower()
-                    if method in app_callables or norm_method in norm_app_callables:
-                        has_app_method = True
+                    if method in app_callables or norm_method in norm_app_callables or method in all_class_callables or norm_method in norm_class_callables:
+                        has_method = True
 
                 norm_trig = re.sub(r'[^a-zA-Z0-9]', '', str(trig)).lower()
-                trigger_matches = (norm_trig in norm_app_callables) or (norm_trig in norm_game_callables)
+                trigger_matches = (norm_trig in norm_app_callables) or (norm_trig in norm_class_callables)
 
-                if not (has_app_method or trigger_matches):
+                if not (has_method or trigger_matches):
                     problems.append(f"Transition {trig} has no callable method")
 
     # 6. Validate files list
@@ -433,7 +495,7 @@ def validate_contract(contract, spec):
                     if camel_pattern.match(mname):
                         problems.append(f"Method '{mname}' in class '{cname}' violates snake_case convention.")
 
-            if cname == "Game":
+            if is_space_fractions and cname == "Game":
                 attrs = [a.get("name") if isinstance(a, dict) else str(a) for a in c.get("attributes", [])]
                 for req_attr in ("id", "score", "state"):
                     if req_attr not in attrs:
@@ -443,7 +505,7 @@ def validate_contract(contract, spec):
                     if rgm not in g_methods:
                         problems.append(f"Class 'Game' missing required method '{rgm}'.")
 
-            elif cname == "Question":
+            elif is_space_fractions and cname == "Question":
                 attrs = [a.get("name") if isinstance(a, dict) else str(a) for a in c.get("attributes", [])]
                 for req_attr in ("id", "prompt", "options", "answer_index"):
                     if req_attr not in attrs:
@@ -465,43 +527,44 @@ def validate_contract(contract, spec):
         trace_elems = {str(t.get("diagram_element", "")) for t in traceability if isinstance(t, dict)}
         for sc in spec_classes:
             sc_name = sc.get("name")
-            if sc_name and not any(sc_name in te for te in trace_elems):
+            if sc_name and not any(sc_name.lower() in te.lower() for te in trace_elems):
                 problems.append(f"Traceability missing ClassDiagram class '{sc_name}'.")
         for uc in spec.get("diagrams", {}).get("UseCaseDiagram", {}).get("usecases", []):
             if not any(uc.lower() in te.lower() for te in trace_elems):
                 problems.append(f"Traceability missing UseCaseDiagram usecase '{uc}'.")
 
-    # 13. Ensure end_game is present in app_methods and smoke_steps (after toggle_pause, before show_view_score)
-    if "end_game" not in app_method_names:
-        problems.append("Contract missing required 'end_game' in app_methods.")
+    # 13. Space Fractions specific checks: end_game in app_methods and smoke_steps, and gameOver mapping
+    if is_space_fractions:
+        if "end_game" not in app_method_names:
+            problems.append("Contract missing required 'end_game' in app_methods.")
 
-    has_end_game_smoke = False
-    for step in smoke_steps:
-        if isinstance(step, dict) and step.get("call") == "end_game":
-            has_end_game_smoke = True
-            break
-    if not has_end_game_smoke:
-        problems.append("Contract missing required 'end_game' smoke step.")
+        has_end_game_smoke = False
+        for step in smoke_steps:
+            if isinstance(step, dict) and step.get("call") == "end_game":
+                has_end_game_smoke = True
+                break
+        if not has_end_game_smoke:
+            problems.append("Contract missing required 'end_game' smoke step.")
 
-    smoke_calls = [s.get("call") for s in smoke_steps if isinstance(s, dict)]
-    if "end_game" in smoke_calls and "toggle_pause" in smoke_calls:
-        if smoke_calls.index("end_game") < smoke_calls.index("toggle_pause"):
-            problems.append("'end_game' smoke step must be placed after 'toggle_pause'.")
-    if "end_game" in smoke_calls and "show_view_score" in smoke_calls:
-        if smoke_calls.index("end_game") > smoke_calls.index("show_view_score"):
-            problems.append("'end_game' smoke step must be placed before 'show_view_score'.")
+        smoke_calls = [s.get("call") for s in smoke_steps if isinstance(s, dict)]
+        if "end_game" in smoke_calls and "toggle_pause" in smoke_calls:
+            if smoke_calls.index("end_game") < smoke_calls.index("toggle_pause"):
+                problems.append("'end_game' smoke step must be placed after 'toggle_pause'.")
+        if "end_game" in smoke_calls and "show_view_score" in smoke_calls:
+            if smoke_calls.index("end_game") > smoke_calls.index("show_view_score"):
+                problems.append("'end_game' smoke step must be placed before 'show_view_score'.")
 
-    # 14. Ensure gameOver transition maps to end_game
-    for t in contract.get("transitions", []):
-        if isinstance(t, dict) and t.get("trigger", "").lower() == "gameover":
-            method = t.get("method", "") or t.get("trigger", "")
-            if "end_game" not in method and "gameover" not in method.lower():
-                problems.append("gameOver transition must map to 'end_game' method.")
+        # 14. Ensure gameOver transition maps to end_game
+        for t in contract.get("transitions", []):
+            if isinstance(t, dict) and t.get("trigger", "").lower() == "gameover":
+                method = t.get("method", "") or t.get("trigger", "")
+                if "end_game" not in method and "gameover" not in method.lower():
+                    problems.append("gameOver transition must map to 'end_game' method.")
 
     return problems
 
 
-def generate_contract(client, spec, max_tokens=8192, runs_dir="runs"):
+def generate_contract(client, spec, max_tokens=8192, runs_dir="runs", log_file=None):
     """Generate, validate, and return architectural contract. Retries once on validation failure."""
     prompt = build_contract_prompt(spec)
     messages = [
@@ -512,6 +575,17 @@ def generate_contract(client, spec, max_tokens=8192, runs_dir="runs"):
     # Attempt 1
     resp = client.chat(messages, json_mode=True, max_tokens=max_tokens, thinking=False)
     content = resp.get("content", "")
+
+    if log_file and resp:
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "stage": "generate_contract",
+                "file": "contract.json",
+                "prompt_tokens": resp.get("usage", {}).get("prompt_tokens", 0),
+                "completion_tokens": resp.get("usage", {}).get("completion_tokens", 0),
+                "cost": resp.get("cost", 0.0),
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+            }) + "\n")
 
     try:
         contract = json.loads(content)
@@ -536,6 +610,17 @@ def generate_contract(client, spec, max_tokens=8192, runs_dir="runs"):
 
     resp2 = client.chat(messages, json_mode=True, max_tokens=max_tokens, thinking=False)
     content2 = resp2.get("content", "")
+
+    if log_file and resp2:
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "stage": "generate_contract_retry",
+                "file": "contract.json",
+                "prompt_tokens": resp2.get("usage", {}).get("prompt_tokens", 0),
+                "completion_tokens": resp2.get("usage", {}).get("completion_tokens", 0),
+                "cost": resp2.get("cost", 0.0),
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+            }) + "\n")
 
     try:
         contract2 = json.loads(content2)
@@ -750,6 +835,12 @@ def build_file_prompt(contract: dict, file_entry: dict, ledger_text: str = "", s
     entrypoints = contract.get("entrypoints", []) if file_path == "main.py" else []
     forbidden_names = contract.get("forbidden_names", [])
 
+    is_space_fractions = (
+        (spec and spec.get("system_name") == "Space Fractions")
+        or any(c.get("name") == "Question" for c in contract.get("classes", []))
+        or any(c.get("name") == "Game" for c in contract.get("classes", []))
+    )
+
     prompt_lines = [
         f"You are implementing the file '{file_path}' for a standalone Windows desktop application.",
         f"Goal: {purpose}",
@@ -772,18 +863,28 @@ def build_file_prompt(contract: dict, file_entry: dict, ledger_text: str = "", s
         "",
         "# NO MODAL DIALOGS IN SMOKE-TESTED METHODS (Rule 2)",
         "For any method whose name appears in contract[\"smoke_steps\"] (directly or transitively via a smoke-called method), do NOT call messagebox.showinfo, showwarning, showerror, askstring, askyesno, or any other modal dialog. Use non-blocking feedback: update a status label, log to a widget, or schedule via root.after(0, ...). Modal dialogs are permitted ONLY in methods unreachable from any smoke step.",
-        "",
-        "# TEST SURFACE RESTRICTION (Rule 3)",
-        "Applies to the single test-generation call:",
-        "Test ONLY:",
-        "  - App methods listed in app_methods",
-        "  - App attributes declared in contract's App class attributes (root, current_user, current_game, questions)",
-        "  - Methods and attributes of Game, Question, User, Admin as declared in their contract classes (plus their properties/accessors)",
-        "Do NOT invent attributes like current_question, current_frame, game.",
-        "To reach the current question after start_play_game, use app.questions[0].",
-        "To reach the game, use app.current_game.",
-        "If a test needs a surface not in the contract, use an existing accessor or test indirectly.",
+        ""
     ]
+
+    if is_space_fractions:
+        prompt_lines.extend([
+            "# TEST SURFACE RESTRICTION (Rule 3)",
+            "Applies to the single test-generation call:",
+            "Test ONLY:",
+            "  - App methods listed in app_methods",
+            "  - App attributes declared in contract's App class attributes (root, current_user, current_game, questions)",
+            "  - Methods and attributes of Game, Question, User, Admin as declared in their contract classes (plus their properties/accessors)",
+            "Do NOT invent attributes like current_question, current_frame, game.",
+            "To reach the current question after start_play_game, use app.questions[0].",
+            "To reach the game, use app.current_game.",
+            "If a test needs a surface not in the contract, use an existing accessor or test indirectly.",
+        ])
+    else:
+        prompt_lines.extend([
+            "# TEST SURFACE RESTRICTION (Rule 3)",
+            "Applies to the test-generation call: Test ONLY declared methods and attributes in the contract slice and earlier signature ledgers.",
+            "Do NOT invent undeclared attributes or private methods.",
+        ])
 
     imports = file_entry.get("imports", [])
     if imports:
@@ -801,12 +902,19 @@ def build_file_prompt(contract: dict, file_entry: dict, ledger_text: str = "", s
             "10. Script Execution: Include standard `if __name__ == '__main__':` block that initializes Tk root, sets window title, calls create_app(root), and calls root.mainloop().",
         ])
     elif file_path == "app.py":
-        prompt_lines.extend([
-            "8. GUI Architecture: Use Tkinter Frame management to support clean multi-screen navigation (Main Menu, Play Game, View Score, Update Questions, Help).",
-            "9. Screen Navigation: Implement show_menu(), show_play_game(), show_view_score(), show_update_questions(), show_help(). Each screen method clears the current screen frame and renders its widgets.",
-            "10. Game Play & State: Implement start_play_game(), submit_answer(answer_index), toggle_pause(), end_game(), update_questions(questions). Update Game state ('Playing', 'Paused', 'GameOver') and score appropriately.",
-            "11. Seed Content: Initialize with a default list of Question instances so the game is immediately playable upon launch.",
-        ])
+        if is_space_fractions:
+            prompt_lines.extend([
+                "8. GUI Architecture: Use Tkinter Frame management to support clean multi-screen navigation (Main Menu, Play Game, View Score, Update Questions, Help).",
+                "9. Screen Navigation: Implement show_menu(), show_play_game(), show_view_score(), show_update_questions(), show_help(). Each screen method clears the current screen frame and renders its widgets.",
+                "10. Game Play & State: Implement start_play_game(), submit_answer(answer_index), toggle_pause(), end_game(), update_questions(questions). Update Game state ('Playing', 'Paused', 'GameOver') and score appropriately.",
+                "11. Seed Content: Initialize with a default list of Question instances so the game is immediately playable upon launch.",
+            ])
+        else:
+            prompt_lines.extend([
+                "8. GUI Architecture: Use Tkinter Frame management to support clean layout and screen/view navigation.",
+                "9. Application Methods: Implement all methods declared in the contract slice under 'app_methods'. Each method must perform the described operation, updating state and UI.",
+                "10. State & Transitions: Update instance state attributes according to contract transitions.",
+            ])
 
     if ledger_text.strip():
         prompt_lines.extend([
@@ -979,41 +1087,84 @@ def implement_file(client, contract: dict, file_entry: dict, ledger_text: str, r
     return rel_path, code, cost
 
 
-def generate_test_file(client, ledger_text: str, run_dir: str | Path, log_file: str | Path = None) -> tuple[str, float]:
+def generate_test_file(
+    client,
+    ledger_text: str,
+    run_dir: str | Path,
+    log_file: str | Path = None,
+    contract: dict = None,
+    spec: dict = None
+) -> tuple[str, float]:
     """Generate tests/test_game.py via ONE model call using full signature ledger."""
     test_rel_path = "tests/test_game.py"
-    prompt = (
-        "You are writing a comprehensive unit test suite for a standalone Python desktop application.\n\n"
-        "### SIGNATURE LEDGER OF IMPLEMENTED MODULES:\n"
-        f"{ledger_text}\n\n"
-        "### TEST-WRITING RULES:\n"
-        "1. Standard library `unittest` only. No 3rd-party test runners or packages.\n"
-        "2. Add project root to sys.path at the top of tests/test_game.py:\n"
-        "   import sys, unittest, tkinter as tk\n"
-        "   from pathlib import Path\n"
-        "   repo_dir = Path(__file__).resolve().parent.parent\n"
-        "   if str(repo_dir) not in sys.path:\n"
-        "       sys.path.insert(0, str(repo_dir))\n"
-        "   from models import Game, Question, User, Admin\n"
-        "   from app import App\n"
-        "   from main import create_app\n"
-        "3. Test each public class and public method at least once (Game, Question, User, Admin, App).\n"
-        "4. Test state transitions: pause -> Playing -> Paused -> Playing, and end_game -> GameOver.\n"
-        "5. Test submit_answer with both correct and wrong answer indices.\n"
-        "6. Test admin questions update flow (update_questions).\n"
-        "7. App tests: construct App instance with `root = tk.Tk(); root.withdraw()` and call methods directly.\n"
-        "8. Ensure tests clean up Tkinter root with `root.destroy()` in tearDown.\n\n"
-        "# TEST SURFACE RESTRICTION (Rule 3)\n"
-        "Test ONLY:\n"
-        "  - App methods listed in app_methods\n"
-        "  - App attributes declared in contract's App class attributes (root, current_user, current_game, questions)\n"
-        "  - Methods and attributes of Game, Question, User, Admin as declared in their contract classes (plus their properties/accessors)\n"
-        "Do NOT invent attributes like current_question, current_frame, game.\n"
-        "To reach the current question after start_play_game, use app.questions[0].\n"
-        "To reach the game, use app.current_game.\n"
-        "If a test needs a surface not in the contract, use an existing accessor or test indirectly.\n\n"
-        "Output the complete source code for `tests/test_game.py` using write_file tool call or python code block."
+
+    is_space_fractions = (
+        (spec and spec.get("system_name") == "Space Fractions")
+        or (contract and any(c.get("name") == "Question" for c in contract.get("classes", [])))
+        or (contract and any(c.get("name") == "Game" for c in contract.get("classes", [])))
     )
+
+    if is_space_fractions:
+        prompt = (
+            "You are writing a comprehensive unit test suite for a standalone Python desktop application.\n\n"
+            "### SIGNATURE LEDGER OF IMPLEMENTED MODULES:\n"
+            f"{ledger_text}\n\n"
+            "### TEST-WRITING RULES:\n"
+            "1. Standard library `unittest` only. No 3rd-party test runners or packages.\n"
+            "2. Add project root to sys.path at the top of tests/test_game.py:\n"
+            "   import sys, unittest, tkinter as tk\n"
+            "   from pathlib import Path\n"
+            "   repo_dir = Path(__file__).resolve().parent.parent\n"
+            "   if str(repo_dir) not in sys.path:\n"
+            "       sys.path.insert(0, str(repo_dir))\n"
+            "   from models import Game, Question, User, Admin\n"
+            "   from app import App\n"
+            "   from main import create_app\n"
+            "3. Test each public class and public method at least once (Game, Question, User, Admin, App).\n"
+            "4. Test state transitions: pause -> Playing -> Paused -> Playing, and end_game -> GameOver.\n"
+            "5. Test submit_answer with both correct and wrong answer indices.\n"
+            "6. Test admin questions update flow (update_questions).\n"
+            "7. App tests: construct App instance with `root = tk.Tk(); root.withdraw()` and call methods directly.\n"
+            "8. Ensure tests clean up Tkinter root with `root.destroy()` in tearDown.\n\n"
+            "# TEST SURFACE RESTRICTION (Rule 3)\n"
+            "Test ONLY:\n"
+            "  - App methods listed in app_methods\n"
+            "  - App attributes declared in contract's App class attributes (root, current_user, current_game, questions)\n"
+            "  - Methods and attributes of Game, Question, User, Admin as declared in their contract classes (plus their properties/accessors)\n"
+            "Do NOT invent attributes like current_question, current_frame, game.\n"
+            "To reach the current question after start_play_game, use app.questions[0].\n"
+            "To reach the game, use app.current_game.\n"
+            "If a test needs a surface not in the contract, use an existing accessor or test indirectly.\n\n"
+            "Output the complete source code for `tests/test_game.py` using write_file tool call or python code block."
+        )
+    else:
+        domain_classes = [c.get("name") for c in contract.get("classes", []) if c.get("name") != "App"] if contract else []
+        classes_import = f"from models import {', '.join(domain_classes)}\n" if domain_classes else ""
+        all_classes_str = ", ".join(domain_classes + ["App"])
+        prompt = (
+            "You are writing a comprehensive unit test suite for a standalone Python desktop application.\n\n"
+            "### SIGNATURE LEDGER OF IMPLEMENTED MODULES:\n"
+            f"{ledger_text}\n\n"
+            "### TEST-WRITING RULES:\n"
+            "1. Standard library `unittest` only. No 3rd-party test runners or packages.\n"
+            "2. Add project root to sys.path at the top of tests/test_game.py:\n"
+            "   import sys, unittest, tkinter as tk\n"
+            "   from pathlib import Path\n"
+            "   repo_dir = Path(__file__).resolve().parent.parent\n"
+            "   if str(repo_dir) not in sys.path:\n"
+            "       sys.path.insert(0, str(repo_dir))\n"
+            f"   {classes_import}"
+            "   from app import App\n"
+            "   from main import create_app\n"
+            f"3. Test each public class and public method at least once ({all_classes_str}).\n"
+            "4. Test state transitions declared in the contract.\n"
+            "5. App tests: construct App instance with `root = tk.Tk(); root.withdraw()` and call methods directly.\n"
+            "6. Ensure tests clean up Tkinter root with `root.destroy()` in tearDown.\n\n"
+            "# TEST SURFACE RESTRICTION (Rule 3)\n"
+            "Test ONLY declared methods and attributes from the signature ledger and contract.\n"
+            "Do NOT invent undeclared attributes or private methods.\n\n"
+            "Output the complete source code for `tests/test_game.py` using write_file tool call or python code block."
+        )
 
     messages = [
         {"role": "system", "content": "You are a test automation engineer writing clean, robust unittest suites."},
@@ -1153,7 +1304,9 @@ def implement_project(client, contract: dict, spec: dict, run_dir: str | Path) -
         client=client,
         ledger_text=full_ledger,
         run_dir=run_dir,
-        log_file=log_file
+        log_file=log_file,
+        contract=contract,
+        spec=spec
     )
     written_files.append(test_rel)
     total_cost += test_cost
@@ -1555,8 +1708,9 @@ def generate_run_report(
         imp_str = f" (imports: {', '.join(f.get('imports', []))})" if f.get("imports") else ""
         lines.append(f"- **Order {f.get('order')}**: `{f.get('path')}` - {f.get('purpose')}{imp_str}")
 
+    cnames_str = ", ".join(c.get("name") for c in contract.get("classes", []))
     lines.extend([
-        "- **Tests**: `tests/test_game.py` - Comprehensive unit test suite covering Game, Question, User, Admin, and App",
+        f"- **Tests**: `tests/test_game.py` - Comprehensive unit test suite covering {cnames_str}",
         "- **Documentation & Configuration**: `requirements.txt`, `README.md`, `DECISIONS.md`",
         "",
         "## 3. Verification Suite Summary (V1–V8: First Attempt vs. Final Attempt)",
@@ -1648,6 +1802,25 @@ def generate_run_report(
     return "\n".join(lines) + "\n"
 
 
+def get_current_cumulative_spend(base_runs_dir: str | Path = "runs") -> float:
+    """Compute cumulative spend across all previous runs using run_log.jsonl as source of truth."""
+    baseline = 0.020315  # Phase 1-5 fixed spend recorded in DECISIONS.md
+    runs_path = Path(base_runs_dir)
+    logged_spend = 0.0
+    if runs_path.exists():
+        for log_file in runs_path.glob("*/run_log.jsonl"):
+            try:
+                with open(log_file, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line:
+                            data = json.loads(line)
+                            logged_spend += float(data.get("cost", 0.0))
+            except Exception:
+                pass
+    return baseline + logged_spend
+
+
 def cli(doc_path: str, view_path: str, output_root: str, api_key: str = None, cache_mode: str = "live") -> dict:
     """CLI entrypoint for running the complete synthesis pipeline."""
     doc_file = Path(doc_path)
@@ -1660,36 +1833,44 @@ def cli(doc_path: str, view_path: str, output_root: str, api_key: str = None, ca
     # 1. Parse architecture documents
     spec, _ = parse_architecture(doc_path, view_path)
 
-    # 2. Load and validate contract (frozen at 57bae2e)
-    contract_file = Path("contract.json")
-    if not contract_file.exists():
-        contract_file = repo_root / "contract.json"
-    if not contract_file.exists():
-        raise FileNotFoundError("contract.json not found")
-
-    with open(contract_file, "r", encoding="utf-8") as f:
-        contract = json.load(f)
-
-    problems = validate_contract(contract, spec)
-    if problems:
-        raise ContractError(f"Contract validation failed: {problems}")
-
-    # 3. Setup Budget, Cache, and Client
-    # Starting cumulative spend at start of Phase 8: $0.037249
-    budget = Budget(run_cap=0.15, total_cap=0.85, spent=0.0, total_spent=0.037249)
-    cache = Cache(cache_dir=".cache", mode="record" if cache_mode == "live" else "replay")
-    client = Client(api_key=api_key, budget=budget, cache=cache)
-
-    # 4. Prepare timestamped run directory
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
-    run_dir = Path(output_root) / f"run_002_{timestamp}"
+    # 2. Setup run directory
+    out_path = Path(output_root)
+    if out_path.name in ("runs", ".", ""):
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        run_dir = out_path / f"run_{timestamp}"
+    else:
+        run_dir = out_path
     run_dir.mkdir(parents=True, exist_ok=True)
     log_file = run_dir / "run_log.jsonl"
+
+    # 3. Setup Budget, Cache, and Client
+    curr_cumulative = get_current_cumulative_spend(repo_root / "runs")
+    budget = Budget(run_cap=0.15, total_cap=0.85, spent=0.0, total_spent=curr_cumulative)
+    cache = Cache(cache_dir=".cache", mode="record" if cache_mode == "live" else "replay")
+    client = Client(api_key=api_key, budget=budget, cache=cache)
 
     start_time_str = time.strftime("%Y-%m-%d %H:%M:%S")
     print(f"Starting CLI Run into '{run_dir}'...")
     print(f"System Name: {spec.get('system_name', 'Untitled')}")
     print(f"Per-run budget cap: ${budget.run_cap:.2f} | Cumulative cap: ${budget.total_cap:.2f}")
+
+    # 4. Check or generate contract dynamically (no hardcoded repo root contract)
+    contract_file = run_dir / "contract.json"
+    contract_cost = 0.0
+    if contract_file.exists():
+        print(f"Loading existing contract from '{contract_file}'...")
+        with open(contract_file, "r", encoding="utf-8") as f:
+            contract = json.load(f)
+        problems = validate_contract(contract, spec)
+        if problems:
+            raise ContractError(f"Contract validation failed: {problems}")
+    else:
+        print("No contract.json found in run directory. Generating contract with DeepSeek LLM...")
+        contract, contract_resp = generate_contract(client, spec, runs_dir=str(run_dir), log_file=log_file)
+        with open(contract_file, "w", encoding="utf-8") as f:
+            json.dump(contract, f, indent=2)
+        contract_cost = contract_resp.get("cost", 0.0) if contract_resp else 0.0
+        print(f"Contract generated and saved to '{contract_file}' (Cost: ${contract_cost:.6f}).")
 
     # 5. Implement project
     t_start = time.time()
@@ -1700,7 +1881,7 @@ def cli(doc_path: str, view_path: str, output_root: str, api_key: str = None, ca
     initial_verif = run_all_checks(run_dir, contract, skip_harness=False)
     final_verif = initial_verif
     repair_rounds = []
-    total_run_cost = result["total_cost"]
+    total_run_cost = contract_cost + result["total_cost"]
 
     # 7. Multi-turn repair loop if initial checks failed
     if not initial_verif.get("all_passed"):
@@ -1748,6 +1929,7 @@ def cli(doc_path: str, view_path: str, output_root: str, api_key: str = None, ca
     print(f"\nCLI Run Completed: {run_dir.name}")
     print(f"Total Run Cost: ${total_run_cost:.6f} | Cumulative: ${budget.total_spent:.6f}")
     print(f"Run Report written to: {report_path}")
+    return result
 
     return result
 

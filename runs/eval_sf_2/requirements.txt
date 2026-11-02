@@ -1,0 +1,2 @@
+# Generated requirements.txt - Standard library only
+# Python 3.12+ (tkinter, json, math, random, datetime, pathlib, unittest)

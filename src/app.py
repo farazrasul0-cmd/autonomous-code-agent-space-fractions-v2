@@ -18,6 +18,7 @@ if str(repo_root) not in sys.path:
 
 from src.parser import parse_architecture
 from src.agent import (
+    generate_contract,
     validate_contract,
     implement_project,
     repair_project,
@@ -540,6 +541,17 @@ class App(tk.Tk):
                         f"{len(spec.get('use_cases', []))} use cases. System: {spec.get('system_name')}"
             })
 
+            # Setup run directory & budget before contract stage
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            run_dir = Path(out_root) / f"run_gui_{timestamp}"
+            run_dir.mkdir(parents=True, exist_ok=True)
+            self.queue.put({"type": "run_dir", "path": str(run_dir)})
+
+            budget = Budget(run_cap=0.15, total_cap=0.85, spent=0.0, total_spent=curr_cum)
+            cache = Cache(cache_dir=".cache", mode="record")
+            client = Client(api_key=api_key, budget=budget, cache=cache)
+            run_spent = 0.0
+
             # -------------------------------------------------------------
             # Stage 2: Contract
             # -------------------------------------------------------------
@@ -548,16 +560,29 @@ class App(tk.Tk):
                 return
 
             self.queue.put({"type": "stage", "stage": "contract", "status": "running"})
-            self.queue.put({"type": "log", "text": "Stage 2: Loading & validating frozen contract.json..."})
+            self.queue.put({"type": "log", "text": "Stage 2: Checking / generating contract.json..."})
 
-            contract_file = repo_root / "contract.json"
-            if not contract_file.exists():
-                raise FileNotFoundError("contract.json not found in repository root")
+            contract_file = run_dir / "contract.json"
+            if contract_file.exists():
+                self.queue.put({"type": "log", "text": f"Loading existing contract from {contract_file.name}..."})
+                with open(contract_file, "r", encoding="utf-8") as f:
+                    contract = json.load(f)
+                problems = validate_contract(contract, spec)
+            else:
+                self.queue.put({"type": "log", "text": "Generating dynamic contract with DeepSeek LLM..."})
+                contract, contract_resp = generate_contract(
+                    client=client,
+                    spec=spec,
+                    runs_dir=str(run_dir),
+                    log_file=run_dir / "run_log.jsonl"
+                )
+                with open(contract_file, "w", encoding="utf-8") as f:
+                    json.dump(contract, f, indent=2)
+                contract_cost = contract_resp.get("cost", 0.0) if contract_resp else 0.0
+                run_spent += contract_cost
+                self.queue.put({"type": "cost", "run_spent": run_spent, "total_spent": budget.total_spent})
+                problems = validate_contract(contract, spec)
 
-            with open(contract_file, "r", encoding="utf-8") as f:
-                contract = json.load(f)
-
-            problems = validate_contract(contract, spec)
             if problems:
                 self.queue.put({"type": "stage", "stage": "contract", "status": "failed"})
                 self.queue.put({"type": "error", "message": f"Contract validation failed: {problems}"})
@@ -575,15 +600,6 @@ class App(tk.Tk):
 
             self.queue.put({"type": "stage", "stage": "implement", "status": "running"})
             self.queue.put({"type": "log", "text": "Stage 3: Generating code modules with DeepSeek LLM..."})
-
-            timestamp = time.strftime("%Y%m%d_%H%M%S")
-            run_dir = Path(out_root) / f"run_gui_{timestamp}"
-            run_dir.mkdir(parents=True, exist_ok=True)
-            self.queue.put({"type": "run_dir", "path": str(run_dir)})
-
-            budget = Budget(run_cap=0.15, total_cap=0.85, spent=0.0, total_spent=curr_cum)
-            cache = Cache(cache_dir=".cache", mode="record")
-            client = Client(api_key=api_key, budget=budget, cache=cache)
 
             t_start = time.time()
             start_time_str = time.strftime("%Y-%m-%d %H:%M:%S")
