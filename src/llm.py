@@ -84,18 +84,12 @@ class Budget:
         self._lock = threading.Lock()
 
     def check(self, estimated_cost=0.0):
-        """Check if adding estimated_cost would exceed either cap. Raise BudgetExceededError if so."""
         with self._lock:
-            projected_run = self.spent + estimated_cost
-            if projected_run > self.run_cap:
-                raise BudgetExceededError(
-                    f"Per-run budget cap would be exceeded: ${projected_run:.6f} > cap ${self.run_cap:.6f}"
-                )
-            projected_total = self.total_spent + estimated_cost
-            if projected_total > self.total_cap:
-                raise BudgetExceededError(
-                    f"Cumulative total budget cap would be exceeded: ${projected_total:.6f} > cap ${self.total_cap:.6f}"
-                )
+            if self.spent >= self.run_cap:
+                raise BudgetExceededError(f"Per-run cap reached: ${self.spent:.6f} >= ${self.run_cap:.6f}")
+            if self.total_spent >= self.total_cap:
+                raise BudgetExceededError(f"Cumulative cap reached: ${self.total_spent:.6f} >= ${self.total_cap:.6f}")
+            # estimate is now a soft signal only; actual spend is the hard guard
 
     def calculate_cost(self, usage_dict):
         """Compute exact cost from usage dictionary using DECISIONS.md rate card formula."""

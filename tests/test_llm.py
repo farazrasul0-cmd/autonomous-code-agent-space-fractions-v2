@@ -44,10 +44,10 @@ class TestLLM(unittest.TestCase):
         with self.assertRaises(BudgetExceededError):
             budget.add(expensive_usage)
 
-        # Also test check() pre-check blocking
+        # Also test check() pre-check blocking when spent >= run_cap
         budget2 = Budget(run_cap=0.00005, total_cap=0.85, spent=0.00005)
         with self.assertRaises(BudgetExceededError):
-            budget2.check(estimated_cost=0.00001)
+            budget2.check()
 
     def test_budget_blocks_cumulative(self):
         """After several calls, a call exceeding total_cap raises BudgetExceededError."""

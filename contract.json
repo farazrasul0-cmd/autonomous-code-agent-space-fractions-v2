@@ -2,33 +2,24 @@
   "files": [
     {
       "path": "models.py",
-      "purpose": "Core domain models: Game, Question, User, Admin",
+      "purpose": "Domain model classes: Game, Question, User, Admin",
       "order": 1,
       "imports": []
     },
     {
-      "path": "services.py",
-      "purpose": "Business logic and use case implementations",
+      "path": "app.py",
+      "purpose": "Tkinter application class implementing use cases and navigation",
       "order": 2,
       "imports": [
         "models"
       ]
     },
     {
-      "path": "ui.py",
-      "purpose": "Tkinter user interface",
+      "path": "main.py",
+      "purpose": "Entry point: create_app factory function",
       "order": 3,
       "imports": [
-        "models",
-        "services"
-      ]
-    },
-    {
-      "path": "main.py",
-      "purpose": "Application entry point",
-      "order": 4,
-      "imports": [
-        "ui"
+        "app"
       ]
     }
   ],
@@ -40,17 +31,31 @@
       "attributes": [
         {
           "name": "id",
-          "type": "string",
+          "type": "str",
           "visibility": "private"
         },
         {
           "name": "score",
           "type": "int",
           "visibility": "private"
+        },
+        {
+          "name": "state",
+          "type": "str",
+          "visibility": "private"
         }
       ],
       "properties": [],
       "methods": [
+        {
+          "name": "__init__",
+          "params": [
+            "self",
+            "id"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
         {
           "name": "play",
           "params": [
@@ -60,11 +65,35 @@
           "kind": "method"
         },
         {
-          "name": "viewScore",
+          "name": "view_score",
           "params": [
             "self"
           ],
           "returns": "int",
+          "kind": "method"
+        },
+        {
+          "name": "pause",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "resume",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "game_over",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
           "kind": "method"
         }
       ]
@@ -76,36 +105,47 @@
       "attributes": [
         {
           "name": "id",
-          "type": "string",
+          "type": "str",
           "visibility": "private"
         },
         {
           "name": "prompt",
-          "type": "string",
+          "type": "str",
           "visibility": "private"
         },
         {
           "name": "options",
-          "type": "List<string>",
+          "type": "List[str]",
           "visibility": "private"
         }
       ],
       "properties": [],
       "methods": [
         {
-          "name": "getPrompt",
+          "name": "__init__",
           "params": [
-            "self"
+            "self",
+            "id",
+            "prompt",
+            "options"
           ],
-          "returns": "string",
+          "returns": "None",
           "kind": "method"
         },
         {
-          "name": "getOptions",
+          "name": "get_prompt",
           "params": [
             "self"
           ],
-          "returns": "List<string>",
+          "returns": "str",
+          "kind": "method"
+        },
+        {
+          "name": "get_options",
+          "params": [
+            "self"
+          ],
+          "returns": "List[str]",
           "kind": "method"
         }
       ]
@@ -117,31 +157,41 @@
       "attributes": [
         {
           "name": "id",
-          "type": "string",
+          "type": "str",
           "visibility": "private"
         },
         {
           "name": "username",
-          "type": "string",
+          "type": "str",
           "visibility": "private"
         }
       ],
       "properties": [],
       "methods": [
         {
-          "name": "playGame",
+          "name": "__init__",
           "params": [
             "self",
-            "game: Game"
+            "id",
+            "username"
           ],
           "returns": "None",
           "kind": "method"
         },
         {
-          "name": "viewScore",
+          "name": "play_game",
           "params": [
             "self",
-            "game: Game"
+            "game"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "view_score",
+          "params": [
+            "self",
+            "game"
           ],
           "returns": "int",
           "kind": "method"
@@ -155,22 +205,150 @@
       "attributes": [
         {
           "name": "id",
-          "type": "string",
+          "type": "str",
           "visibility": "private"
         },
         {
           "name": "username",
-          "type": "string",
+          "type": "str",
           "visibility": "private"
         }
       ],
       "properties": [],
       "methods": [
         {
-          "name": "updateQuestions",
+          "name": "__init__",
           "params": [
             "self",
-            "questions: List<Question>"
+            "id",
+            "username"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "update_questions",
+          "params": [
+            "self",
+            "questions"
+          ],
+          "returns": "None",
+          "kind": "method"
+        }
+      ]
+    },
+    {
+      "name": "App",
+      "file": "app.py",
+      "base": null,
+      "attributes": [
+        {
+          "name": "root",
+          "type": "tk.Tk",
+          "visibility": "private"
+        },
+        {
+          "name": "current_game",
+          "type": "Game",
+          "visibility": "private"
+        },
+        {
+          "name": "questions",
+          "type": "List[Question]",
+          "visibility": "private"
+        },
+        {
+          "name": "current_user",
+          "type": "User",
+          "visibility": "private"
+        },
+        {
+          "name": "current_admin",
+          "type": "Admin",
+          "visibility": "private"
+        }
+      ],
+      "properties": [],
+      "methods": [
+        {
+          "name": "__init__",
+          "params": [
+            "self",
+            "root"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "show_menu",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "show_play_game",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "show_view_score",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "show_update_questions",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "show_help",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "start_play_game",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "submit_answer",
+          "params": [
+            "self",
+            "answer_index"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "toggle_pause",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "submit_update_questions",
+          "params": [
+            "self",
+            "questions_data"
           ],
           "returns": "None",
           "kind": "method"
@@ -180,65 +358,156 @@
   ],
   "entrypoints": [
     {
-      "name": "launch",
-      "signature": "launch() -> None",
-      "purpose": "Start the Tkinter application"
+      "name": "create_app",
+      "signature": "create_app(root: tk.Tk) -> App",
+      "purpose": "Create and return the application instance"
+    }
+  ],
+  "app_methods": [
+    {
+      "name": "show_menu",
+      "signature": "show_menu() -> None",
+      "purpose": "Display main menu"
     },
     {
-      "name": "play_game",
-      "signature": "play_game(user: User, game: Game) -> None",
-      "purpose": "Use case: Play Game"
+      "name": "show_play_game",
+      "signature": "show_play_game() -> None",
+      "purpose": "Display play game screen"
     },
     {
-      "name": "view_score",
-      "signature": "view_score(user: User, game: Game) -> int",
-      "purpose": "Use case: View Score"
+      "name": "show_view_score",
+      "signature": "show_view_score() -> None",
+      "purpose": "Display view score screen"
     },
     {
-      "name": "update_questions",
-      "signature": "update_questions(admin: Admin, questions: List<Question>) -> None",
-      "purpose": "Use case: Update Questions"
+      "name": "show_update_questions",
+      "signature": "show_update_questions() -> None",
+      "purpose": "Display update questions screen (admin)"
     },
     {
-      "name": "view_help",
-      "signature": "view_help() -> None",
-      "purpose": "Use case: View Help"
+      "name": "show_help",
+      "signature": "show_help() -> None",
+      "purpose": "Display help screen"
+    },
+    {
+      "name": "start_play_game",
+      "signature": "start_play_game() -> None",
+      "purpose": "Start a new game"
+    },
+    {
+      "name": "submit_answer",
+      "signature": "submit_answer(answer_index: int) -> None",
+      "purpose": "Submit answer for current question"
+    },
+    {
+      "name": "toggle_pause",
+      "signature": "toggle_pause() -> None",
+      "purpose": "Toggle pause/resume game"
+    },
+    {
+      "name": "submit_update_questions",
+      "signature": "submit_update_questions(questions_data: List[dict]) -> None",
+      "purpose": "Update questions from admin input"
+    }
+  ],
+  "states": [
+    {
+      "name": "Playing",
+      "owner": "Game",
+      "attribute": "state"
+    },
+    {
+      "name": "Paused",
+      "owner": "Game",
+      "attribute": "state"
+    },
+    {
+      "name": "GameOver",
+      "owner": "Game",
+      "attribute": "state"
+    }
+  ],
+  "transitions": [
+    {
+      "trigger": "start",
+      "from": null,
+      "to": "Playing"
+    },
+    {
+      "trigger": "pause",
+      "from": "Playing",
+      "to": "Paused"
+    },
+    {
+      "trigger": "resume",
+      "from": "Paused",
+      "to": "Playing"
+    },
+    {
+      "trigger": "gameOver",
+      "from": "Playing",
+      "to": "GameOver"
     }
   ],
   "smoke_steps": [
     {
-      "call": "launch",
+      "call": "create_app",
       "args": [],
-      "purpose": "Smoke test application launch"
+      "purpose": "Smoke test app creation"
     },
     {
-      "call": "play_game",
-      "args": [
-        "user",
-        "game"
-      ],
-      "purpose": "Smoke test Play Game use case"
-    },
-    {
-      "call": "view_score",
-      "args": [
-        "user",
-        "game"
-      ],
-      "purpose": "Smoke test View Score use case"
-    },
-    {
-      "call": "update_questions",
-      "args": [
-        "admin",
-        "questions"
-      ],
-      "purpose": "Smoke test admin update questions flow"
-    },
-    {
-      "call": "view_help",
+      "call": "show_menu",
       "args": [],
-      "purpose": "Smoke test View Help use case"
+      "purpose": "Smoke test menu display"
+    },
+    {
+      "call": "start_play_game",
+      "args": [],
+      "purpose": "Smoke test starting a game"
+    },
+    {
+      "call": "submit_answer",
+      "args": [
+        0
+      ],
+      "purpose": "Smoke test submitting an answer"
+    },
+    {
+      "call": "toggle_pause",
+      "args": [],
+      "purpose": "Smoke test pausing/resuming"
+    },
+    {
+      "call": "show_view_score",
+      "args": [],
+      "purpose": "Smoke test viewing score"
+    },
+    {
+      "call": "show_help",
+      "args": [],
+      "purpose": "Smoke test help screen"
+    },
+    {
+      "call": "show_update_questions",
+      "args": [],
+      "purpose": "Smoke test admin update questions screen"
+    },
+    {
+      "call": "submit_update_questions",
+      "args": [
+        [
+          {
+            "id": "q1",
+            "prompt": "What is 2+2?",
+            "options": [
+              "3",
+              "4",
+              "5"
+            ]
+          }
+        ]
+      ],
+      "purpose": "Smoke test admin updating questions"
     }
   ],
   "traceability": [
@@ -260,19 +529,31 @@
     },
     {
       "diagram_element": "UseCaseDiagram.Play Game",
-      "code_symbol": "play_game"
+      "code_symbol": "App.start_play_game"
     },
     {
       "diagram_element": "UseCaseDiagram.View Score",
-      "code_symbol": "view_score"
+      "code_symbol": "App.show_view_score"
     },
     {
       "diagram_element": "UseCaseDiagram.Update Questions",
-      "code_symbol": "update_questions"
+      "code_symbol": "App.submit_update_questions"
     },
     {
       "diagram_element": "UseCaseDiagram.View Help",
-      "code_symbol": "view_help"
+      "code_symbol": "App.show_help"
+    },
+    {
+      "diagram_element": "StateDiagram.Playing",
+      "code_symbol": "Game.state == 'Playing'"
+    },
+    {
+      "diagram_element": "StateDiagram.Paused",
+      "code_symbol": "Game.state == 'Paused'"
+    },
+    {
+      "diagram_element": "StateDiagram.GameOver",
+      "code_symbol": "Game.state == 'GameOver'"
     }
   ],
   "forbidden_names": [

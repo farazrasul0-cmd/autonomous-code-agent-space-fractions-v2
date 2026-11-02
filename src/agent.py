@@ -79,8 +79,11 @@ def build_contract_prompt(spec):
         '{\n'
         '  "files": [{"path": "calculator.py", "purpose": "Math logic", "order": 1, "imports": []}],\n'
         '  "classes": [{"name": "Calculator", "file": "calculator.py", "base": null, "attributes": [{"name": "val", "type": "int", "visibility": "public"}], "properties": [], "methods": [{"name": "add", "params": ["self", "n"], "returns": "int", "kind": "method"}]}],\n'
-        '  "entrypoints": [{"name": "launch", "signature": "launch() -> None", "purpose": "Start App"}],\n'
-        '  "smoke_steps": [{"call": "launch", "args": [], "purpose": "Smoke test app"}],\n'
+        '  "entrypoints": [{"name": "create_app", "signature": "create_app(root: tk.Tk) -> App", "purpose": "Create and return the application instance"}],\n'
+        '  "app_methods": [{"name": "calculate", "signature": "calculate(n: int) -> int", "purpose": "Execute calculation"}],\n'
+        '  "states": [{"name": "Idle", "owner": "Calculator", "attribute": "state"}],\n'
+        '  "transitions": [{"trigger": "compute", "from": "Idle", "to": "Idle"}],\n'
+        '  "smoke_steps": [{"call": "create_app", "args": [], "purpose": "Smoke test app creation"}, {"call": "calculate", "args": [5], "purpose": "Smoke test calculate"}],\n'
         '  "traceability": [{"diagram_element": "ClassDiagram.Calculator", "code_symbol": "Calculator"}]\n'
         '}'
     )
@@ -93,8 +96,16 @@ def build_contract_prompt(spec):
 3. Architecture Fidelity: Retain every class name, attribute, and method signature specified in the architecture specification.
 4. Method Kinds: Each method must have kind 'method', 'property', or 'staticmethod'.
 5. File Dependencies: Define files in strictly topological dependency order (a file must only import files with lower order indices).
-6. Coverage Mandate: Include every class from the class diagram and every usecase from the use case diagram. Every use case requires a designated callable entry point and at least one corresponding smoke step.
-7. Administrative Flow: If the specification contains an Admin actor or Update Questions usecase, you MUST include a dedicated smoke step whose purpose or call name contains 'admin' or 'update'.
+6. Coverage Mandate: Include every class from the class diagram and every usecase from the use case diagram.
+7. The contract MUST declare all states and transitions from the state diagram under the 'states' and 'transitions' keys. Every transition trigger must match the state diagram triggers.
+8. Administrative Flow: If the specification contains an Admin actor or Update Questions usecase, you MUST include a dedicated smoke step whose purpose or call name contains 'admin' or 'update'.
+
+### APPLICATION STRUCTURE (MANDATORY):
+- The project MUST expose `main.create_app(root)` returning an App instance.
+- The App MUST have public methods for every use case and every screen named in the documents.
+- App methods MUST be navigable: show_menu(), show_<screen>(), start_<use_case>(), submit_<action>(), toggle_<state>().
+- App methods MUST take zero arguments OR only primitive literals (int index, str value, list of dicts). They MUST NOT take domain objects (User, Game, Question) as parameters, because the harness cannot construct those.
+- smoke_steps MUST be executable directly on the App instance returned by create_app(root) with literal arguments. No identifier strings like 'user' or 'game'.
 
 ### REQUIRED JSON SCHEMA FORMAT:
 {schema_example}
@@ -110,14 +121,14 @@ Output ONLY the complete, valid JSON contract object matching the schema above."
 
 
 def validate_contract(contract, spec):
-    """Validate contract against schema rules, architectural spec completeness, and admin smoke step mandate."""
+    """Validate contract against schema rules, architectural spec completeness, create_app, and state/transition rules."""
     problems = []
 
     if not isinstance(contract, dict):
         return ["Contract must be a JSON dictionary."]
 
     # 1. Top-level required keys
-    required_keys = ["files", "classes", "entrypoints", "smoke_steps", "traceability"]
+    required_keys = ["files", "classes", "entrypoints", "app_methods", "states", "transitions", "smoke_steps", "traceability"]
     for key in required_keys:
         if key not in contract:
             problems.append(f"Missing required top-level key: '{key}'")
@@ -125,7 +136,65 @@ def validate_contract(contract, spec):
     if problems:
         return problems
 
-    # 2. Validate files list
+    # 2. Validate create_app entrypoint
+    entrypoints = contract.get("entrypoints", [])
+    has_create_app = False
+    entrypoint_names = set()
+    for idx, ep in enumerate(entrypoints):
+        if isinstance(ep, dict):
+            name = ep.get("name")
+            sig = ep.get("signature", "")
+            if name:
+                entrypoint_names.add(name)
+            if name == "create_app" and "root" in sig:
+                has_create_app = True
+    if not has_create_app:
+        problems.append("Contract missing required entrypoint 'create_app' taking 'root' parameter.")
+
+    # 3. Validate app_methods list
+    app_methods = contract.get("app_methods", [])
+    app_method_names = set()
+    if not isinstance(app_methods, list) or len(app_methods) == 0:
+        problems.append("Contract missing required non-empty 'app_methods' list.")
+    else:
+        for idx, m in enumerate(app_methods):
+            if not isinstance(m, dict) or not m.get("name"):
+                problems.append(f"app_methods entry at index {idx} must be a dict with 'name'.")
+            else:
+                app_method_names.add(m.get("name"))
+
+    # 4. Validate states section against spec
+    states = contract.get("states")
+    spec_states = spec.get("diagrams", {}).get("StateDiagram", {}).get("states", [])
+    if not isinstance(states, list):
+        problems.append("Contract missing required 'states' list.")
+    elif len(states) < len(spec_states):
+        problems.append(
+            f"Contract 'states' count ({len(states)}) is less than spec StateDiagram states count ({len(spec_states)})."
+        )
+
+    # 5. Validate transitions section against spec
+    transitions = contract.get("transitions")
+    spec_transitions = spec.get("diagrams", {}).get("StateDiagram", {}).get("transitions", [])
+    if not isinstance(transitions, list):
+        problems.append("Contract missing required 'transitions' list.")
+    else:
+        spec_triggers = []
+        for t in spec_transitions:
+            if ":" in t:
+                trig = t.split(":")[-1].replace("()", "").strip()
+                if trig:
+                    spec_triggers.append(trig)
+
+        contract_triggers = {
+            str(t.get("trigger", "")).replace("()", "").strip().lower()
+            for t in transitions if isinstance(t, dict)
+        }
+        for trig in spec_triggers:
+            if trig.lower() not in contract_triggers:
+                problems.append(f"Contract missing state transition trigger from spec: '{trig}'")
+
+    # 6. Validate files list
     files = contract.get("files", [])
     if not isinstance(files, list) or len(files) == 0:
         problems.append("'files' must be a non-empty list.")
@@ -160,7 +229,7 @@ def validate_contract(contract, spec):
                                 f"(order {imp_order}) which is not strictly earlier."
                             )
 
-    # 3. Validate classes against spec
+    # 7. Validate classes against spec
     classes = contract.get("classes", [])
     contract_class_names = set()
     contract_method_names = set()
@@ -200,40 +269,10 @@ def validate_contract(contract, spec):
         if sc_name and sc_name not in contract_class_names:
             problems.append(f"Missing required class from spec: '{sc_name}'")
 
-    # 4. Validate entrypoints against spec usecases
-    entrypoints = contract.get("entrypoints", [])
-    entrypoint_names = set()
-    entrypoint_text_corpus = ""
-
-    for idx, ep in enumerate(entrypoints):
-        if not isinstance(ep, dict):
-            problems.append(f"Entrypoint at index {idx} must be a dict.")
-            continue
-        name = ep.get("name")
-        sig = ep.get("signature")
-        purp = ep.get("purpose", "")
-        if not name or not sig:
-            problems.append(f"Entrypoint at index {idx} missing 'name' or 'signature'.")
-            continue
-        entrypoint_names.add(name)
-        entrypoint_text_corpus += f" {name} {purp}".lower()
-
-    spec_usecases = spec.get("diagrams", {}).get("UseCaseDiagram", {}).get("usecases", [])
-    for uc in spec_usecases:
-        uc_clean = re.sub(r'[^a-zA-Z0-9]', '', uc).lower()
-        # Check if use case words or clean token are covered in entrypoints
-        tokens = [t.lower() for t in uc.split() if len(t) > 2]
-        covered = (uc_clean in entrypoint_text_corpus.replace("_", "").replace(" ", "") or
-                   all(t in entrypoint_text_corpus for t in tokens))
-        if not covered:
-            problems.append(f"Missing entrypoint covering spec usecase: '{uc}'")
-
-    # 5. Validate smoke steps
+    # 8. Validate smoke steps and literal args
     smoke_steps = contract.get("smoke_steps", [])
-    all_callable_targets = entrypoint_names | contract_method_names
-    # Add standalone function names if any
-    for ep in entrypoint_names:
-        all_callable_targets.add(ep)
+    allowed_smoke_calls = app_method_names | entrypoint_names | {"create_app"}
+    identifier_pattern = re.compile(r'^(user|game|admin|questions)$', re.IGNORECASE)
 
     if not isinstance(smoke_steps, list) or len(smoke_steps) == 0:
         problems.append("'smoke_steps' must be a non-empty list.")
@@ -250,12 +289,20 @@ def validate_contract(contract, spec):
                 continue
             if not isinstance(args, list):
                 problems.append(f"Smoke step '{call}' args must be a list.")
-            # Check call target is declared
-            base_call = call.split("(")[0].strip()
-            if base_call not in all_callable_targets:
-                problems.append(f"Smoke step calls undeclared function or method: '{base_call}'")
+            else:
+                for arg_idx, arg in enumerate(args):
+                    if isinstance(arg, str) and identifier_pattern.match(arg.strip()):
+                        problems.append(
+                            f"Smoke step '{call}' arg #{arg_idx+1} is bare identifier '{arg}'; "
+                            f"arguments must be primitive literals (e.g. [], 0, '') or zero arguments."
+                        )
 
-    # 6. MISSING ADMIN SMOKE STEP validation
+            # Check call target is declared in app_methods, entrypoints, or create_app
+            base_call = call.split("(")[0].strip()
+            if base_call not in allowed_smoke_calls and base_call not in contract_method_names:
+                problems.append(f"Smoke step calls undeclared method: '{base_call}'")
+
+    # 9. MISSING ADMIN SMOKE STEP validation
     uc_diag = spec.get("diagrams", {}).get("UseCaseDiagram", {})
     actors = [str(a).lower() for a in uc_diag.get("actors", [])]
     usecases = [str(u).lower() for u in uc_diag.get("usecases", [])]

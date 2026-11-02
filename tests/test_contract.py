@@ -40,7 +40,13 @@ def get_sample_spec():
                 "usecases": ["Play Game", "View Score", "Update Questions", "View Help"]
             },
             "StateDiagram": {
-                "states": ["Playing", "Paused", "GameOver"]
+                "states": ["Playing", "Paused", "GameOver"],
+                "transitions": [
+                    "[*] -> Playing",
+                    "Playing -> Paused : pause()",
+                    "Paused -> Playing : resume()",
+                    "Playing -> GameOver : gameOver()"
+                ]
             }
         },
         "requirements": []
@@ -48,12 +54,13 @@ def get_sample_spec():
 
 
 def make_valid_contract():
-    """Construct valid contract conforming to spec."""
+    """Construct valid contract conforming to spec and new application structure."""
     return {
         "files": [
             {"path": "models.py", "purpose": "Domain models", "order": 1, "imports": []},
-            {"path": "game.py", "purpose": "Game logic and administration", "order": 2, "imports": ["models.py"]},
-            {"path": "gui.py", "purpose": "Tkinter GUI interface", "order": 3, "imports": ["game.py", "models.py"]}
+            {"path": "services.py", "purpose": "Game logic and administration", "order": 2, "imports": ["models.py"]},
+            {"path": "ui.py", "purpose": "Tkinter GUI interface", "order": 3, "imports": ["services.py", "models.py"]},
+            {"path": "main.py", "purpose": "Application entry point", "order": 4, "imports": ["ui.py"]}
         ],
         "classes": [
             {
@@ -78,7 +85,7 @@ def make_valid_contract():
                 "base": None,
                 "attributes": [{"name": "username", "type": "str", "visibility": "private"}],
                 "properties": [],
-                "methods": [{"name": "playGame", "params": ["self"], "returns": "None", "kind": "method"}]
+                "methods": [{"name": "playGame", "params": ["self", "game"], "returns": "None", "kind": "method"}]
             },
             {
                 "name": "Admin",
@@ -90,16 +97,30 @@ def make_valid_contract():
             }
         ],
         "entrypoints": [
-            {"name": "play_game", "signature": "play_game() -> None", "purpose": "Play Game"},
-            {"name": "view_score", "signature": "view_score() -> int", "purpose": "View Score"},
-            {"name": "view_help", "signature": "view_help() -> None", "purpose": "View Help"},
-            {"name": "update_questions", "signature": "update_questions(data) -> None", "purpose": "Update Questions"}
+            {"name": "create_app", "signature": "create_app(root: tk.Tk) -> App", "purpose": "Create and return the App instance"}
+        ],
+        "app_methods": [
+            {"name": "start_game", "signature": "start_game() -> None", "purpose": "Use case: Play Game"},
+            {"name": "view_score", "signature": "view_score() -> int", "purpose": "Use case: View Score"},
+            {"name": "update_questions", "signature": "update_questions(questions: list) -> None", "purpose": "Use case: Update Questions"},
+            {"name": "show_help", "signature": "show_help() -> None", "purpose": "Use case: View Help"}
+        ],
+        "states": [
+            {"name": "Playing", "owner": "Game", "attribute": "state"},
+            {"name": "Paused", "owner": "Game", "attribute": "state"},
+            {"name": "GameOver", "owner": "Game", "attribute": "state"}
+        ],
+        "transitions": [
+            {"trigger": "pause", "from": "Playing", "to": "Paused"},
+            {"trigger": "resume", "from": "Paused", "to": "Playing"},
+            {"trigger": "gameOver", "from": "Playing", "to": "GameOver"}
         ],
         "smoke_steps": [
-            {"call": "play_game", "args": [], "purpose": "Verify Play Game flow"},
-            {"call": "view_score", "args": [], "purpose": "Verify View Score flow"},
-            {"call": "view_help", "args": [], "purpose": "Verify View Help flow"},
-            {"call": "update_questions", "args": [[]], "purpose": "Verify Admin update questions flow"}
+            {"call": "create_app", "args": [], "purpose": "Smoke test application launch"},
+            {"call": "start_game", "args": [], "purpose": "Smoke test Play Game flow"},
+            {"call": "view_score", "args": [], "purpose": "Smoke test View Score flow"},
+            {"call": "update_questions", "args": [[]], "purpose": "Smoke test admin update questions flow"},
+            {"call": "show_help", "args": [], "purpose": "Smoke test View Help flow"}
         ],
         "traceability": [
             {"diagram_element": "ClassDiagram.Game", "code_symbol": "Game"},
@@ -191,6 +212,57 @@ class TestContract(unittest.TestCase):
         self.assertNotIn("Space Fractions", prompt, "Prompt must not contain brand name 'Space Fractions'")
         self.assertIn("Tkinter", prompt)
         self.assertIn("Calculator", prompt)
+
+    def test_rejects_missing_create_app(self):
+        """Fix 3.1: Contract missing create_app entrypoint taking root parameter is rejected."""
+        contract = make_valid_contract()
+        contract["entrypoints"] = [
+            {"name": "launch", "signature": "launch() -> None", "purpose": "Start application"}
+        ]
+        problems = validate_contract(contract, self.spec)
+        self.assertTrue(any("create_app" in p for p in problems), f"Expected create_app error, got: {problems}")
+
+    def test_rejects_identifier_args_in_smoke_steps(self):
+        """Fix 3.4: Reject smoke step args that are bare identifier strings like 'user', 'game', 'admin', 'questions'."""
+        for bad_arg in ["user", "game", "admin", "questions"]:
+            contract = make_valid_contract()
+            contract["smoke_steps"][1]["args"] = [bad_arg]
+            problems = validate_contract(contract, self.spec)
+            self.assertTrue(
+                any("bare identifier" in p for p in problems),
+                f"Expected bare identifier rejection for '{bad_arg}', got: {problems}"
+            )
+
+    def test_rejects_missing_states_section(self):
+        """Fix 3.5: Contract missing states or with fewer states than spec StateDiagram is rejected."""
+        contract = make_valid_contract()
+        # Missing states key
+        del contract["states"]
+        problems = validate_contract(contract, self.spec)
+        self.assertTrue(any("states" in p for p in problems), f"Expected missing states error, got: {problems}")
+
+        # Fewer states than spec (spec has 3 states: Playing, Paused, GameOver)
+        contract2 = make_valid_contract()
+        contract2["states"] = [{"name": "Playing", "owner": "Game", "attribute": "state"}]
+        problems2 = validate_contract(contract2, self.spec)
+        self.assertTrue(any("states" in p for p in problems2), f"Expected state count error, got: {problems2}")
+
+    def test_rejects_missing_transitions(self):
+        """Fix 3.6: Contract missing transitions or omitting triggers from spec StateDiagram is rejected."""
+        contract = make_valid_contract()
+        # Missing transitions key
+        del contract["transitions"]
+        problems = validate_contract(contract, self.spec)
+        self.assertTrue(any("transitions" in p for p in problems), f"Expected missing transitions error, got: {problems}")
+
+        # Transitions omitting 'pause' trigger
+        contract2 = make_valid_contract()
+        contract2["transitions"] = [
+            {"trigger": "resume", "from": "Paused", "to": "Playing"},
+            {"trigger": "gameOver", "from": "Playing", "to": "GameOver"}
+        ]
+        problems2 = validate_contract(contract2, self.spec)
+        self.assertTrue(any("pause" in p for p in problems2), f"Expected missing trigger 'pause' error, got: {problems2}")
 
 
 if __name__ == "__main__":
