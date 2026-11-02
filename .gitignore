@@ -1,0 +1,15 @@
+.venv/
+venv/
+build/
+dist/
+*.spec
+.cache/
+__pycache__/
+*.key
+.env
+scratch/
+*.bak
+*.rar
+update_plan.py
+~$*
+*.tmp
