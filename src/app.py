@@ -204,40 +204,49 @@ class App(tk.Tk):
         self.key_status_lbl = ttk.Label(cfg_frame, text="Loaded from environment" if env_key else "Key required", font=("Segoe UI", 8, "italic"))
         self.key_status_lbl.grid(row=0, column=4, sticky=tk.W, padx=5, pady=4)
 
+        # Allow unverified TLS Checkbox Row
+        self.allow_tls_var = tk.BooleanVar(value=False)
+        self.allow_tls_cb = ttk.Checkbutton(
+            cfg_frame,
+            text="Allow unverified TLS (Not recommended)",
+            variable=self.allow_tls_var
+        )
+        self.allow_tls_cb.grid(row=1, column=1, columnspan=3, sticky=tk.W, padx=5, pady=(0, 4))
+
         # Architecture Documentation Picker Row
         doc_lbl = ttk.Label(cfg_frame, text="Architecture Doc:")
-        doc_lbl.grid(row=1, column=0, sticky=tk.W, padx=5, pady=4)
+        doc_lbl.grid(row=2, column=0, sticky=tk.W, padx=5, pady=4)
 
         default_doc = "Architecture_Documentation.md" if Path("Architecture_Documentation.md").exists() else ""
         self.doc_var = tk.StringVar(value=default_doc)
         self.doc_entry = ttk.Entry(cfg_frame, textvariable=self.doc_var, width=54)
-        self.doc_entry.grid(row=1, column=1, columnspan=2, sticky=tk.W, padx=5, pady=4)
+        self.doc_entry.grid(row=2, column=1, columnspan=2, sticky=tk.W, padx=5, pady=4)
 
         self.doc_btn = ttk.Button(cfg_frame, text="Browse...", command=self._browse_doc)
-        self.doc_btn.grid(row=1, column=3, padx=5, pady=4)
+        self.doc_btn.grid(row=2, column=3, padx=5, pady=4)
 
         # Architecture View Picker Row
         view_lbl = ttk.Label(cfg_frame, text="Architecture View:")
-        view_lbl.grid(row=2, column=0, sticky=tk.W, padx=5, pady=4)
+        view_lbl.grid(row=3, column=0, sticky=tk.W, padx=5, pady=4)
 
         default_view = "Architecture_View.md" if Path("Architecture_View.md").exists() else ""
         self.view_var = tk.StringVar(value=default_view)
         self.view_entry = ttk.Entry(cfg_frame, textvariable=self.view_var, width=54)
-        self.view_entry.grid(row=2, column=1, columnspan=2, sticky=tk.W, padx=5, pady=4)
+        self.view_entry.grid(row=3, column=1, columnspan=2, sticky=tk.W, padx=5, pady=4)
 
         self.view_btn = ttk.Button(cfg_frame, text="Browse...", command=self._browse_view)
-        self.view_btn.grid(row=2, column=3, padx=5, pady=4)
+        self.view_btn.grid(row=3, column=3, padx=5, pady=4)
 
         # Output Folder Row
         out_lbl = ttk.Label(cfg_frame, text="Output Directory:")
-        out_lbl.grid(row=3, column=0, sticky=tk.W, padx=5, pady=4)
+        out_lbl.grid(row=4, column=0, sticky=tk.W, padx=5, pady=4)
 
         self.out_var = tk.StringVar(value="runs")
         self.out_entry = ttk.Entry(cfg_frame, textvariable=self.out_var, width=54)
-        self.out_entry.grid(row=3, column=1, columnspan=2, sticky=tk.W, padx=5, pady=4)
+        self.out_entry.grid(row=4, column=1, columnspan=2, sticky=tk.W, padx=5, pady=4)
 
         self.out_btn = ttk.Button(cfg_frame, text="Browse...", command=self._browse_out)
-        self.out_btn.grid(row=3, column=3, padx=5, pady=4)
+        self.out_btn.grid(row=4, column=3, padx=5, pady=4)
 
         # 3. Task Description Frame
         task_frame = ttk.LabelFrame(container, text="Task Description", padding="10")
@@ -420,12 +429,13 @@ class App(tk.Tk):
             messagebox.showwarning("API Key Required", "Please enter a DeepSeek API key or set DEEPSEEK_API_KEY.")
             return
 
+        allow_tls = self.allow_tls_var.get()
         self.test_key_btn.configure(state=tk.DISABLED, text="Testing...")
         self.key_status_lbl.configure(text="Connecting to DeepSeek API...", fg="#856404")
 
         def _worker():
             try:
-                available_models = models(api_key=key)
+                available_models = models(api_key=key, allow_unverified_tls=allow_tls)
                 self.queue.put({
                     "type": "key_test_result",
                     "success": True,
@@ -551,10 +561,17 @@ class App(tk.Tk):
             run_dir.mkdir(parents=True, exist_ok=True)
             self.queue.put({"type": "run_dir", "path": str(run_dir)})
 
+            allow_tls = self.allow_tls_var.get()
+            if allow_tls:
+                self.queue.put({
+                    "type": "log",
+                    "text": "WARNING: Bypassing TLS verification. Your API key may be intercepted."
+                })
+
             budget = Budget(run_cap=0.15, total_cap=0.85, spent=0.0, total_spent=curr_cum)
             cache_dir = Path(tempfile.gettempdir()) / "CodeAgent_cache"
             cache = Cache(cache_dir=str(cache_dir), mode="record")
-            client = Client(api_key=api_key, budget=budget, cache=cache)
+            client = Client(api_key=api_key, budget=budget, cache=cache, allow_unverified_tls=allow_tls)
             run_spent = 0.0
 
             # -------------------------------------------------------------

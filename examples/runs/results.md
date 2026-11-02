@@ -16,11 +16,11 @@ Input specification:
 - Architecture View: `examples/inputs/Architecture_View.md`
 - Target System: `Space Fractions` (Domain: `Game`, `Question`, `User`, `Admin`)
 
-| Run ID | First-Attempt Passes | Repairs Needed / Executed | Final Verdict | Run Cost ($) | Notes |
+| Run ID | First-Attempt Status | Repairs Needed / Executed | Final Verdict | Run Cost ($) | Notes |
 |:---|:---:|:---:|:---:|:---:|:---|
-| `eval_sf_1` | 6 / 8 (V1–V6 PASS, V7–V8 FAIL) | 3 Rounds (Round 3 fixed `app.py`, resolving V8) | **FAILED** | $0.031308 | V8 passed after autonomous repair; V7 reached 48/49 passing tests. |
-| `eval_sf_2` | 6 / 8 (V1–V6 PASS, V7–V8 FAIL) | 3 Rounds | **FAILED** | $0.005375 | Replay cache hit on generation; 3 live repair rounds executed. |
-| `eval_sf_3` | 6 / 8 (V1–V6 PASS, V7–V8 FAIL) | 3 Rounds | **FAILED** | $0.005375 | Replay cache hit on generation; 3 live repair rounds executed. |
+| `eval_sf_1` | First Attempt: V7 & V8 FAILED (6/8 pass) | 3 Rounds (Round 3 fixed `app.py`, resolving V8) | **FAILED** | $0.031308 | V8 passed after autonomous repair; V7 reached 48/49 passing tests. |
+| `eval_sf_2` | First Attempt: V7 & V8 FAILED (6/8 pass) | 3 Rounds | **FAILED** | $0.005375 | Replay cache hit on generation; 3 live repair rounds executed. |
+| `eval_sf_3` | First Attempt: V7 & V8 FAILED (6/8 pass) | 3 Rounds | **FAILED** | $0.005375 | Replay cache hit on generation; 3 live repair rounds executed. |
 
 ---
 
@@ -31,9 +31,9 @@ Input specification:
 - Architecture View: `examples/inputs_second/Architecture_View.md`
 - Target System: `Smart To-Do List` (Domain: `Task`, `TaskManager`, Tkinter GUI `App`)
 
-| Run ID | First-Attempt Passes | Repairs Needed / Executed | Final Verdict | Run Cost ($) | Notes |
+| Run ID | First-Attempt Status | Repairs Needed / Executed | Final Verdict | Run Cost ($) | Notes |
 |:---|:---:|:---:|:---:|:---:|:---|
-| `eval_todo_1` | 7 / 8 (V1–V6, V8 PASS; V7 FAIL) | 2 Rounds (Round 2 repaired `models.py`) | **PASSED** | $0.015632 | All V1–V8 checks passed cleanly upon Round 2 repair completion. |
+| `eval_todo_1` | First Attempt: V7 FAILED (test mismatch; 7/8 pass) | 2 Rounds (Round 2 repaired `models.py`) | **PASSED** | $0.015632 | All V1–V8 checks passed cleanly upon Round 2 repair completion. |
 
 ---
 
@@ -44,7 +44,7 @@ Input specification:
 - **Run 3 (`eval_sf_3`)**: `$0.005375`
 - **Run 4 (`eval_todo_1`)**: `$0.015632`
 - **Total Spend Across 4 Evaluation Runs**: **`$0.057690`**
-- **All-Time Cumulative Project Spend**: **`$0.108033`**
+- **All-Time Cumulative Project Spend**: **`$0.108033`** (Total spend ($0.108) includes all development, API probing, bug hunting, and the 4 final evaluation runs.)
 - **Strict Budget Ceiling**: **`$0.850000`**
 - **Remaining Budget Headroom**: **`$0.741967`** (87.3% remaining)
 
@@ -73,3 +73,15 @@ Across `eval_sf_1`, `eval_sf_2`, and `eval_sf_3`, the Space Fractions applicatio
 - **V8 Issue**: Generated Tkinter UI attempted to pass `-style` to a standard `tkinter.Button` rather than a `ttk.Button`. In `eval_sf_1`, Round 3 of the autonomous repair loop successfully diagnosed this and edited `app.py`, turning V8 from **FAIL** to **PASS**.
 - **V7 Issue**: The synthesized unit tests asserted `self.assertIsNone(self.app.current_user)` immediately upon launch, whereas `app.py` initialized a default guest user session or dummy user. 48 of 49 unit tests passed.
 - **Reporting Integrity**: Per standing supervisory directive, these failures are recorded faithfully and honestly without masking or synthetic overrides.
+
+---
+
+## 7. Verified Binary Checksums
+
+The release binaries compiled from Python 3.12 standard library with full hidden imports exhibit the following cryptographic hashes:
+
+| Artifact | SHA256 Hash |
+|:---|:---|
+| `dist/CodeAgent/CodeAgent.exe` | `B2DD2147CDAA4220AA47ED18E66ECB2EB1FEDC70EF9328EAC1129FA24726F608` |
+| `dist/CodeAgentOneFile.exe` | `4F1F857BD6B42C28899E9CFD8835421D67A4D3BEC5ECBA3D3953C0B9FEC2AF8B` |
+| `dist/CodeAgent_onedir.zip` | `4245D09763A12D3560F4813C9A073D97685D8576C57D5B1880BC767A0C3ADC29` |

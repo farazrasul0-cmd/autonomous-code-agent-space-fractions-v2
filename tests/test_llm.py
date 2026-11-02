@@ -336,7 +336,7 @@ class TestLLM(unittest.TestCase):
         self.assertAlmostEqual(cost_with_hit, expected_hit_cost, places=8)
 
     def test_ssl_cert_verification_error_retries_with_unverified_context(self):
-        """Verify chat() retries with an unverified context when CERTIFICATE_VERIFY_FAILED occurs."""
+        """Verify chat() blocks by default on SSL error, and retries with unverified context when opted-in."""
         import ssl
         import urllib.error
 
@@ -361,16 +361,24 @@ class TestLLM(unittest.TestCase):
                 raise urllib.error.URLError(ssl.SSLError("CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate"))
             return MockResp()
 
-        client = Client(api_key="sk-test-key-12345678")
+        # 1. Default (strict): allow_unverified_tls=False raises LLMError with instructions
+        client_strict = Client(api_key="sk-test-key-12345678", allow_unverified_tls=False)
         with unittest.mock.patch("urllib.request.urlopen", side_effect=mock_urlopen):
-            resp = client.chat([{"role": "user", "content": "hello"}])
+            with self.assertRaises(LLMError) as cm:
+                client_strict.chat([{"role": "user", "content": "hello"}])
+            self.assertIn("Windows Sandbox", str(cm.exception))
+
+        # 2. Opt-in: allow_unverified_tls=True retries with context and succeeds
+        call_contexts.clear()
+        client_optin = Client(api_key="sk-test-key-12345678", allow_unverified_tls=True)
+        with unittest.mock.patch("urllib.request.urlopen", side_effect=mock_urlopen):
+            resp = client_optin.chat([{"role": "user", "content": "hello"}])
             self.assertEqual(resp["content"], "ssl recovered")
             self.assertEqual(len(call_contexts), 2)
-            self.assertIsNone(call_contexts[0])
             self.assertIsNotNone(call_contexts[1])
 
     def test_models_ssl_fallback(self):
-        """Verify models() retries with an unverified context when CERTIFICATE_VERIFY_FAILED occurs."""
+        """Verify models() blocks by default on SSL error, and retries with unverified context when opted-in."""
         import ssl
         import urllib.error
         from src.llm import models
@@ -395,11 +403,18 @@ class TestLLM(unittest.TestCase):
                 raise urllib.error.URLError("CERTIFICATE_VERIFY_FAILED")
             return MockResp()
 
+        # 1. Default (strict) raises LLMError
         with unittest.mock.patch("urllib.request.urlopen", side_effect=mock_urlopen):
-            res = models(api_key="sk-test-key-12345678")
+            with self.assertRaises(LLMError) as cm:
+                models(api_key="sk-test-key-12345678", allow_unverified_tls=False)
+            self.assertIn("Windows Sandbox", str(cm.exception))
+
+        # 2. Opt-in succeeds
+        call_contexts.clear()
+        with unittest.mock.patch("urllib.request.urlopen", side_effect=mock_urlopen):
+            res = models(api_key="sk-test-key-12345678", allow_unverified_tls=True)
             self.assertEqual(res, ["deepseek-v4-pro"])
             self.assertEqual(len(call_contexts), 2)
-            self.assertIsNone(call_contexts[0])
             self.assertIsNotNone(call_contexts[1])
 
 

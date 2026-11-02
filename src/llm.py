@@ -193,14 +193,15 @@ class Cache:
 
 class Client:
     """Official DeepSeek API client with non-thinking default, budget tracking, and caching."""
-    def __init__(self, api_key=None, base_url=BASE_URL, model=MODEL, budget=None, cache=None, max_tokens=MAX_TOKENS):
+    def __init__(self, api_key=None, base_url=BASE_URL, model=MODEL, budget=None, cache=None, max_tokens=MAX_TOKENS, allow_unverified_tls=False):
         self.api_key = get_api_key(api_key)
         self.base_url = base_url
         self.model = model
         self.budget = budget or Budget()
         self.cache = cache
         self.max_tokens = max_tokens
-        self._ssl_context = None
+        self.allow_unverified_tls = allow_unverified_tls
+        self._ssl_context = ssl._create_unverified_context() if allow_unverified_tls else None
 
     def _estimate_cost(self, body, max_tokens):
         prompt_tokens = sum(len(m.get("content", "")) for m in body["messages"]) // 3
@@ -292,18 +293,24 @@ class Client:
             except urllib.error.URLError as e:
                 err_str = str(e.reason) if hasattr(e, "reason") else str(e)
                 if isinstance(getattr(e, "reason", None), ssl.SSLError) or "CERTIFICATE_VERIFY_FAILED" in err_str:
-                    print("SSL certificate verification failed. Retrying with unverified context.")
-                    ctx = ssl._create_unverified_context()
-                    self._ssl_context = ctx
-                    try:
-                        with urllib.request.urlopen(req, timeout=60, context=ctx) as resp:
-                            resp_bytes = resp.read()
-                            resp_dict = json.loads(resp_bytes.decode("utf-8"))
-                            if self.cache and self.cache.mode == "record":
-                                self.cache.put(body, resp_dict)
-                            return self._format_response(resp_dict, is_cached=False)
-                    except Exception as ssl_e:
-                        raise LLMError(f"SSL retry failed: {sanitize(str(ssl_e))}") from ssl_e
+                    if self.allow_unverified_tls:
+                        print("WARNING: Bypassing TLS verification. Your API key may be intercepted.")
+                        ctx = ssl._create_unverified_context()
+                        self._ssl_context = ctx
+                        try:
+                            with urllib.request.urlopen(req, timeout=60, context=ctx) as resp:
+                                resp_bytes = resp.read()
+                                resp_dict = json.loads(resp_bytes.decode("utf-8"))
+                                if self.cache and self.cache.mode == "record":
+                                    self.cache.put(body, resp_dict)
+                                return self._format_response(resp_dict, is_cached=False)
+                        except Exception as ssl_e:
+                            raise LLMError(f"SSL retry failed: {sanitize(str(ssl_e))}") from ssl_e
+                    else:
+                        raise LLMError(
+                            "SSL Verification failed. If you are in Windows Sandbox, "
+                            "open https://api.deepseek.com in Edge first to download the root certificates, then try again."
+                        )
 
                 # Network error: retry once after 2 seconds
                 if not network_retried and attempt < max_retries - 1:
@@ -385,7 +392,7 @@ class FakeClient:
             raise TypeError(f"Unsupported scripted response type: {type(resp)}")
 
 
-def models(api_key=None, base_url=None):
+def models(api_key=None, base_url=None, allow_unverified_tls=False):
     """Query DeepSeek models endpoint and return list of model IDs for GUI testing."""
     key = get_api_key(api_key)
     if not key:
@@ -395,17 +402,26 @@ def models(api_key=None, base_url=None):
     req = urllib.request.Request(url, headers={"Authorization": f"Bearer {key}"}, method="GET")
     try:
         try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            kwargs = {"timeout": 10}
+            if allow_unverified_tls:
+                kwargs["context"] = ssl._create_unverified_context()
+            with urllib.request.urlopen(req, **kwargs) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 return [m.get("id") for m in data.get("data", [])]
         except urllib.error.URLError as e:
             err_str = str(e.reason) if hasattr(e, "reason") else str(e)
             if isinstance(getattr(e, "reason", None), ssl.SSLError) or "CERTIFICATE_VERIFY_FAILED" in err_str:
-                print("SSL certificate verification failed. Retrying with unverified context.")
-                ctx = ssl._create_unverified_context()
-                with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    return [m.get("id") for m in data.get("data", [])]
+                if allow_unverified_tls:
+                    print("WARNING: Bypassing TLS verification. Your API key may be intercepted.")
+                    ctx = ssl._create_unverified_context()
+                    with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        return [m.get("id") for m in data.get("data", [])]
+                else:
+                    raise LLMError(
+                        "SSL Verification failed. If you are in Windows Sandbox, "
+                        "open https://api.deepseek.com in Edge first to download the root certificates, then try again."
+                    )
             raise
     except Exception as e:
         raise LLMError(f"Failed to fetch models: {sanitize(str(e))}")
