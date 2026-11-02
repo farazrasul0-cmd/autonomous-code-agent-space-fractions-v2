@@ -357,6 +357,10 @@ def parse_architecture(doc_path, view_path):
         }
 
     # Consolidated spec structure
+    class_diagram = parsed_diagrams.get("ClassDiagram", {})
+    uc_diagram = parsed_diagrams.get("UseCaseDiagram", {})
+    state_diagram = parsed_diagrams.get("StateDiagram", {})
+
     spec = {
         "system_name": system_name,
         "diagram_count": len(blocks),
@@ -364,7 +368,10 @@ def parse_architecture(doc_path, view_path):
         "conflicts": conflicts,
         "warnings": warnings,
         "executive_summary": exec_summary,
-        "diagrams": parsed_diagrams
+        "diagrams": parsed_diagrams,
+        "classes": class_diagram.get("classes", []),
+        "use_cases": uc_diagram.get("usecases", []),
+        "states": state_diagram.get("states", [])
     }
 
     # Format JSON with indent=1

@@ -243,6 +243,28 @@ Student ->> Quiz: start()
         # Empty fallback
         self.assertEqual(extract_system_name(""), "Untitled System")
 
+    def test_parse_todo_input_finds_two_classes(self):
+        """Verify parsing examples/inputs_second finds 2 classes (Task, TaskManager) and use cases."""
+        todo_doc = os.path.join(repo_root, "examples", "inputs_second", "Architecture_Documentation.md")
+        todo_view = os.path.join(repo_root, "examples", "inputs_second", "Architecture_View.md")
+        spec, _ = parse_architecture(todo_doc, todo_view)
+
+        # Check top-level convenience keys
+        self.assertEqual(len(spec.get("classes", [])), 2)
+        class_names = [c["name"] for c in spec.get("classes", [])]
+        self.assertIn("Task", class_names)
+        self.assertIn("TaskManager", class_names)
+
+        # Check ClassDiagram
+        self.assertIn("ClassDiagram", spec["diagrams"])
+        diag_classes = [c["name"] for c in spec["diagrams"]["ClassDiagram"]["classes"]]
+        self.assertEqual(diag_classes, ["Task", "TaskManager"])
+
+        # Check use cases
+        self.assertEqual(len(spec.get("use_cases", [])), 3)
+        self.assertIn("Add Task", spec.get("use_cases", []))
+        self.assertEqual(spec.get("system_name"), "Smart To-Do List")
+
 
 if __name__ == "__main__":
     unittest.main()

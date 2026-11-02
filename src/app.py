@@ -535,11 +535,14 @@ class App(tk.Tk):
 
             spec, _ = parse_architecture(doc_path, view_path)
 
+            parsed_classes = spec.get("classes") or spec.get("diagrams", {}).get("ClassDiagram", {}).get("classes", [])
+            parsed_ucs = spec.get("use_cases") or spec.get("diagrams", {}).get("UseCaseDiagram", {}).get("usecases", [])
+
             self.queue.put({"type": "stage", "stage": "parse", "status": "complete"})
             self.queue.put({
                 "type": "log",
-                "text": f"Stage 1 Complete: Parsed {len(spec.get('classes', []))} classes, "
-                        f"{len(spec.get('use_cases', []))} use cases. System: {spec.get('system_name')}"
+                "text": f"Stage 1 Complete: Parsed {len(parsed_classes)} classes, "
+                        f"{len(parsed_ucs)} use cases. System: {spec.get('system_name')}"
             })
 
             # Setup run directory & budget before contract stage
