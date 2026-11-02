@@ -206,9 +206,13 @@
    ]
   },
   "PackageDiagram": {
-   "kind": "class",
-   "classes": [],
-   "relations": [
+   "kind": "package",
+   "elements": [
+    "Game",
+    "User",
+    "Admin"
+   ],
+   "links": [
     "Game -- User",
     "Game -- Admin"
    ]

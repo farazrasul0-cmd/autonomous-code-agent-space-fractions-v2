@@ -179,7 +179,9 @@ def parse_diagram_block(name, raw):
 
     if "usecase" in lower_name or "actor " in lower_raw or "usecase " in lower_raw:
         return parse_usecase_diagram(raw)
-    elif "class" in lower_name or "class " in lower_raw:
+    elif "package" in lower_name or "package " in lower_raw:
+        return parse_other_diagram(raw, "package")
+    elif "class" in lower_name or re.search(r'class\s+\w+\s*\{', raw):
         return parse_class_diagram(raw)
     elif "state" in lower_name or "state " in lower_raw or "[*]" in raw:
         return parse_state_diagram(raw)
@@ -189,8 +191,6 @@ def parse_diagram_block(name, raw):
         return parse_other_diagram(raw, "object")
     elif "activity" in lower_name or ("start" in lower_raw and "stop" in lower_raw):
         return parse_other_diagram(raw, "activity")
-    elif "package" in lower_name or "package " in lower_raw:
-        return parse_other_diagram(raw, "package")
     elif "component" in lower_name:
         return parse_other_diagram(raw, "component")
     elif "deployment" in lower_name:
@@ -227,6 +227,35 @@ def extract_requirements(doc_text):
             "description": reqs[req_id]
         })
     return result
+
+def extract_system_name(doc_text, doc_sections):
+    """Extract system name from executive summary or headings, falling back to 'Untitled System'."""
+    clean_text = clean_escaped_markdown(doc_text)
+
+    # Check for sentence: The <Name> system is ...
+    m = re.search(r'\bThe\s+([A-Z][A-Za-z0-9_\s]+?)\s+system\s+is\b', clean_text)
+    if m:
+        name = m.group(1).strip()
+        if name:
+            return name
+
+    # Check executive summary section specifically
+    for title, body in doc_sections.items():
+        if "executive" in title.lower() or "summary" in title.lower():
+            m2 = re.search(r'\bThe\s+([A-Z][A-Za-z0-9_\s]+?)\s+system\s+is\b', body)
+            if m2:
+                return m2.group(1).strip()
+
+    # Fall back to the first # heading
+    heading_match = re.search(r'^#\s+(.+)$', clean_text, re.MULTILINE)
+    if heading_match:
+        raw_heading = heading_match.group(1).strip()
+        cleaned = re.sub(r'^[A-Z0-9]\.\s*', '', raw_heading)
+        cleaned = re.sub(r'\s*(?:System Architecture Documentation|Architecture Documentation|Architecture View|System)\b.*$', '', cleaned, flags=re.IGNORECASE).strip()
+        if cleaned:
+            return cleaned
+
+    return "Untitled System"
 
 def extract_warnings(doc_text, view_text, blocks):
     """Detect inconsistencies, empty tables, duplicate blocks, and mismatches in documents."""
@@ -297,16 +326,26 @@ def parse_architecture(doc_path, view_path):
             exec_summary = first_p[:250].strip()
             break
 
-    # Architectural conflicts entry (web/microservices vs desktop target)
-    conflicts = {
-        "prescribed_stack": "Web microservices (Node.js, Express, PostgreSQL, Redis, RabbitMQ, Docker, Kubernetes).",
-        "assignment_requirement": "Standalone local Windows desktop application (.exe) using Python and Tkinter.",
-        "resolution": "desktop requirement wins; cloud/container/microservice infrastructure is out of scope."
-    }
+    # Extract system name
+    system_name = extract_system_name(doc_text, doc_sections)
+
+    # Architectural conflicts entry (conditional on cloud/web keywords in doc_text)
+    lower_doc = doc_text.lower()
+    cloud_keywords = ["web-based", "microservices", "kubernetes", "redis", "rabbitmq", "docker"]
+    if any(kw in lower_doc for kw in cloud_keywords):
+        conflicts = {
+            "prescribed_stack": "Web microservices (Node.js, Express, PostgreSQL, Redis, RabbitMQ, Docker, Kubernetes).",
+            "assignment_requirement": "Standalone local Windows desktop application (.exe) using Python and Tkinter.",
+            "resolution": "desktop requirement wins; cloud/container/microservice infrastructure is out of scope."
+        }
+    else:
+        conflicts = {
+            "resolution": "no cloud/desktop conflict detected"
+        }
 
     # Consolidated spec structure
     spec = {
-        "system_name": "Space Fractions",
+        "system_name": system_name,
         "diagram_count": len(blocks),
         "requirements": requirements,
         "conflicts": conflicts,

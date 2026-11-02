@@ -111,6 +111,11 @@ class TestParser(unittest.TestCase):
             self.assertIn(st, extracted_states, f"State '{st}' missing from extracted states: {extracted_states}")
         self.assertEqual(len(extracted_states), 3)
 
+        # PackageDiagram must be classified as package, not class
+        self.assertIn("PackageDiagram", spec["diagrams"])
+        self.assertEqual(spec["diagrams"]["PackageDiagram"]["kind"], "package")
+        self.assertIn("Game", spec["diagrams"]["PackageDiagram"]["elements"])
+
     def test_conflicts_entry(self):
         """Test 4: conflicts entry specifies 'desktop' resolution."""
         spec, _ = parse_architecture(self.doc_path, self.view_path)
@@ -132,6 +137,82 @@ class TestParser(unittest.TestCase):
         if os.path.exists(disk_spec_path):
             disk_size = os.path.getsize(disk_spec_path)
             self.assertLess(disk_size, 6000, f"spec.json on disk ({disk_size} bytes) exceeds 6000-byte cap")
+
+    def test_sequence_message_counts(self):
+        """Test 6: assert len(SequenceDiagram1 messages) == 8 and len(SequenceDiagram2 messages) == 2."""
+        spec, _ = parse_architecture(self.doc_path, self.view_path)
+        self.assertIn("SequenceDiagram1", spec["diagrams"])
+        self.assertIn("SequenceDiagram2", spec["diagrams"])
+        seq1_msgs = spec["diagrams"]["SequenceDiagram1"]["messages"]
+        seq2_msgs = spec["diagrams"]["SequenceDiagram2"]["messages"]
+        self.assertEqual(len(seq1_msgs), 8, f"Expected 8 messages in SequenceDiagram1, got {len(seq1_msgs)}")
+        self.assertEqual(len(seq2_msgs), 2, f"Expected 2 messages in SequenceDiagram2, got {len(seq2_msgs)}")
+
+    def test_genericity(self):
+        """Test 7: parse minimal synthetic document pair without cloud mentions.
+        Assert (a) system_name is not 'Space Fractions',
+               (b) conflicts is empty or explicitly 'no cloud/desktop conflict detected',
+               (c) the diagram count matches the synthetic input.
+        """
+        synth_doc = """# QuizMaster Architecture Documentation
+The QuizMaster system is an offline quiz tool for classroom practice.
+
+# Requirements
+| FR-1 | User can answer multiple choice questions |
+"""
+        synth_view = """# Diagrams
+
+```plantuml
+@startuml UseCaseDiagram
+actor Student
+usecase "Take Quiz" as (TakeQuiz)
+Student -- (TakeQuiz)
+@enduml
+```
+
+```plantuml
+@startuml ClassDiagram
+class Quiz {
+  - title: string
+  + start(): void
+}
+@enduml
+```
+
+```plantuml
+@startuml SequenceDiagram
+participant Student
+participant Quiz
+Student ->> Quiz: start()
+@enduml
+```
+"""
+        with tempfile.NamedTemporaryFile("w+", delete=False, suffix=".md", encoding="utf-8") as f_doc, \
+             tempfile.NamedTemporaryFile("w+", delete=False, suffix=".md", encoding="utf-8") as f_view:
+            f_doc_path = f_doc.name
+            f_view_path = f_view.name
+            f_doc.write(synth_doc)
+            f_view.write(synth_view)
+
+        try:
+            synth_spec, _ = parse_architecture(f_doc_path, f_view_path)
+            # (a) system_name is not "Space Fractions"
+            self.assertNotEqual(synth_spec["system_name"], "Space Fractions")
+            self.assertEqual(synth_spec["system_name"], "QuizMaster")
+
+            # (b) conflicts is empty or explicitly "no cloud/desktop conflict detected"
+            conflicts = synth_spec["conflicts"]
+            if conflicts:
+                self.assertEqual(conflicts.get("resolution"), "no cloud/desktop conflict detected")
+
+            # (c) diagram count matches synthetic input (3)
+            self.assertEqual(synth_spec["diagram_count"], 3)
+            self.assertEqual(len(synth_spec["diagrams"]), 3)
+        finally:
+            if os.path.exists(f_doc_path):
+                os.remove(f_doc_path)
+            if os.path.exists(f_view_path):
+                os.remove(f_view_path)
 
 
 if __name__ == "__main__":
