@@ -106,3 +106,9 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
 - **Planned Evaluation Runs**: 2 Space Fractions runs + 1 second-input run (2+1 format), safely staying within the \$0.85 cumulative cap ($3 \times \$0.15 = \$0.45 \ll \$0.85$). Adjust to 3+1 only if Phase 8 measures cost below \$0.10.
 - **Professor Contact**: **None** (strict adherence to supervisory directive).
 - **Environment & Key Protection**: No API keys appear in repository files, commit history, logs, or replay cache. `.env`, `.venv`, and `scratch/` are strictly gitignored.
+
+---
+
+## 6. Phase 6 Prerequisites (Standing Directive)
+
+- **Windowed-Mode Print Guard**: In PyInstaller windowed mode on Windows (`runw.exe`), `sys.stdout` and `sys.stderr` may be `None` or raise exceptions when written to directly. Before implementing code generation in Phase 6, all runtime code and generated Tkinter application entrypoints must include a print guard (redirecting `sys.stdout`/`sys.stderr` to a safe dummy stream/null or logging stream) to prevent silent crashes in windowed mode.
