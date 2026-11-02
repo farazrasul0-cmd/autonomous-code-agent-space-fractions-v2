@@ -832,5 +832,11 @@ def create_app(headless: bool = False) -> App:
 
 
 if __name__ == "__main__":
-    app = create_app()
-    app.mainloop()
+    if len(sys.argv) >= 3 and sys.argv[1] == "--run-script":
+        script_to_run = sys.argv[2]
+        import runpy
+        sys.argv = sys.argv[2:]
+        runpy.run_path(script_to_run, run_name="__main__")
+    else:
+        app = create_app()
+        app.mainloop()

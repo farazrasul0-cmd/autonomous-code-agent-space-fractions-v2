@@ -1,41 +1,22 @@
-# build.ps1 - PyInstaller automated build script for CodeAgent
 $ErrorActionPreference = "Stop"
-
-$Root = $PSScriptRoot
-Set-Location $Root
+$root = $PSScriptRoot
+$app  = Join-Path $root "src\app.py"
+if (-not (Test-Path $app)) { throw "src/app.py not found" }
 
 $hiddenImports = @(
-    "random", "dataclasses", "enum", "fractions", "uuid", "math",
-    "typing", "itertools", "functools", "collections", "datetime",
-    "pathlib", "copy", "tkinter", "tkinter.ttk", "tkinter.messagebox",
-    "tkinter.simpledialog", "tkinter.font", "unittest", "unittest.mock",
-    "unittest.__main__"
+    "random","dataclasses","enum","fractions","uuid","math","typing",
+    "itertools","functools","collections","datetime","pathlib","copy",
+    "tkinter","tkinter.ttk","tkinter.messagebox","tkinter.simpledialog",
+    "tkinter.font","unittest","unittest.mock","unittest.__main__"
 )
+$hidden = $hiddenImports | ForEach-Object { "--hidden-import=$_" }
 
-$hiddenImportArgs = $hiddenImports | ForEach-Object { "--hidden-import=$_" }
-$addDataArgs = @("--add-data=examples;examples")
+Write-Host "Building onedir (primary)..."
+python -m PyInstaller --noconfirm --onedir --windowed --noupx `
+    --name CodeAgent --add-data "examples;examples" @hidden $app
+Write-Host "SHA256 onedir: $((Get-FileHash dist\CodeAgent\CodeAgent.exe -Algorithm SHA256).Hash)"
 
-Write-Host "=========================================="
-Write-Host "Building CodeAgent (onedir - Primary)..."
-Write-Host "=========================================="
-python -m PyInstaller --noconfirm --onedir --windowed --noupx --name CodeAgent @hiddenImportArgs @addDataArgs "$Root/src/app.py"
-
-Write-Host "=========================================="
-Write-Host "Building CodeAgent (onefile - Secondary)..."
-Write-Host "=========================================="
-python -m PyInstaller --noconfirm --onefile --windowed --noupx --name CodeAgent_Standalone @hiddenImportArgs @addDataArgs "$Root/src/app.py"
-
-Write-Host "=========================================="
-Write-Host "Calculating SHA-256 Hashes..."
-Write-Host "=========================================="
-if (Test-Path "$Root/dist/CodeAgent/CodeAgent.exe") {
-    $onedirHash = Get-FileHash -Algorithm SHA256 "$Root/dist/CodeAgent/CodeAgent.exe"
-    Write-Host "Onedir Exe SHA256:  $($onedirHash.Hash)"
-}
-
-if (Test-Path "$Root/dist/CodeAgent_Standalone.exe") {
-    $onefileHash = Get-FileHash -Algorithm SHA256 "$Root/dist/CodeAgent_Standalone.exe"
-    Write-Host "Onefile Exe SHA256: $($onefileHash.Hash)"
-}
-
-Write-Host "Build complete successfully."
+Write-Host "Building onefile (secondary)..."
+python -m PyInstaller --noconfirm --onefile --windowed --noupx `
+    --name CodeAgentOneFile --add-data "examples;examples" @hidden $app
+Write-Host "SHA256 onefile: $((Get-FileHash dist\CodeAgentOneFile.exe -Algorithm SHA256).Hash)"

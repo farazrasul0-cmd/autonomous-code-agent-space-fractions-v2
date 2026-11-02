@@ -120,6 +120,24 @@ class TestApp(unittest.TestCase):
         finally:
             app.destroy()
 
+    def test_run_script_cli_flag(self):
+        """Verify python src/app.py --run-script <path> executes target script without launching GUI."""
+        import subprocess
+        with tempfile.TemporaryDirectory() as temp_dir:
+            marker = Path(temp_dir) / "marker.txt"
+            script = Path(temp_dir) / "test_target.py"
+            script.write_text(f"from pathlib import Path\nPath(r'{marker}').write_text('ran', encoding='utf-8')\n", encoding="utf-8")
+
+            res = subprocess.run(
+                [sys.executable, str(repo_root / "src" / "app.py"), "--run-script", str(script)],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            self.assertEqual(res.returncode, 0, f"Subprocess failed: {res.stderr}")
+            self.assertTrue(marker.exists())
+            self.assertEqual(marker.read_text(encoding="utf-8"), "ran")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -207,5 +207,18 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
 - **Detached Execution Standard**: Implemented `launch_game(main_path)` using `subprocess.Popen` with `CREATE_NEW_PROCESS_GROUP` on Windows and `DEVNULL` streams with `close_fds=True`, decoupling child game lifecycle from parent GUI. Supports frozen executable (`--run-script`) and source execution.
 - **Verification & Test Coverage**: 60 unit tests passing covering AST `AnnAssign` handling, GUI initialization, queue-based stage updates, detached process spawning, and log sanitization.
 
+---
+
+## 13. Phase 11 Packaging & Clean Machine Verification Architecture
+
+- **PyInstaller Reproducible Builds**: Automated via `build.ps1` using Python 3.12, PyInstaller 6.22.3, `--noupx`, `--windowed`, and `--add-data "examples;examples"`.
+- **Full Hidden Imports List**: Explicitly bundle 20 required standard library modules (`random`, `dataclasses`, `enum`, `fractions`, `uuid`, `math`, `typing`, `itertools`, `functools`, `collections`, `datetime`, `pathlib`, `copy`, `tkinter`, `tkinter.ttk`, `tkinter.messagebox`, `tkinter.simpledialog`, `tkinter.font`, `unittest`, `unittest.mock`, `unittest.__main__`).
+- **Binary Targets**:
+  - Primary (onedir): `dist/CodeAgent/CodeAgent.exe` (SHA256: `2605D559700622D72E1B72D4AB035AF722E15B0220FF62FF0AA35B0F46E17715`)
+  - Secondary (onefile): `dist/CodeAgentOneFile.exe` (SHA256: `CABC42816A1DE6BF8DFD87B5EE0241CC6289A7C52CF73FDA06C0066F38B2FBDB`)
+- **Windows Sandbox Test Staging**: Staged clean folder `dist/SandboxTest/` containing onedir build `CodeAgent/`, bundled `examples/`, `contract.json`, and `spec.json` for independent operator verification in Windows Sandbox.
+- **Frozen Detached Runner**: `src/app.py` implements `--run-script <path>` allowing the frozen `CodeAgent.exe` to execute synthesized target applications (`main.py`) in detached child processes without launching the parent agent GUI.
+
+
 
 
