@@ -14,7 +14,9 @@ repo_root = Path(__file__).resolve().parent.parent
 if str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
-from src.llm import Client, FakeClient, LLMError, BudgetExceededError
+from src.llm import Client, FakeClient, LLMError, BudgetExceededError, Budget, Cache
+from src.parser import parse_architecture
+from src.verify import run_all_checks
 
 
 class ContractError(Exception):
@@ -1111,3 +1113,125 @@ def implement_project(client, contract: dict, spec: dict, run_dir: str | Path) -
         "ledger": full_ledger,
         "log_file": str(log_file)
     }
+
+
+def cli(doc_path: str, view_path: str, output_root: str, api_key: str = None, cache_mode: str = "live") -> dict:
+    """CLI entrypoint for running the complete synthesis pipeline."""
+    doc_file = Path(doc_path)
+    view_file = Path(view_path)
+    if not doc_file.exists():
+        raise FileNotFoundError(f"Architecture documentation file not found: {doc_path}")
+    if not view_file.exists():
+        raise FileNotFoundError(f"Architecture view file not found: {view_path}")
+
+    # 1. Parse architecture documents
+    spec, _ = parse_architecture(doc_path, view_path)
+
+    # 2. Load and validate contract (frozen at 57bae2e)
+    contract_file = Path("contract.json")
+    if not contract_file.exists():
+        contract_file = repo_root / "contract.json"
+    if not contract_file.exists():
+        raise FileNotFoundError("contract.json not found")
+
+    with open(contract_file, "r", encoding="utf-8") as f:
+        contract = json.load(f)
+
+    problems = validate_contract(contract, spec)
+    if problems:
+        raise ContractError(f"Contract validation failed: {problems}")
+
+    # 3. Setup Budget, Cache, and Client
+    # Starting cumulative spend at start of Phase 8: $0.037249
+    budget = Budget(run_cap=0.15, total_cap=0.85, spent=0.0, total_spent=0.037249)
+    cache = Cache(cache_dir=".cache", mode="record" if cache_mode == "live" else "replay")
+    client = Client(api_key=api_key, budget=budget, cache=cache)
+
+    # 4. Prepare timestamped run directory
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    run_dir = Path(output_root) / f"run_002_{timestamp}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"Starting CLI Run into '{run_dir}'...")
+    print(f"System Name: {spec.get('system_name', 'Untitled')}")
+    print(f"Per-run budget cap: ${budget.run_cap:.2f} | Cumulative cap: ${budget.total_cap:.2f}")
+
+    # 5. Implement project
+    t_start = time.time()
+    result = implement_project(client=client, contract=contract, spec=spec, run_dir=run_dir)
+    elapsed = time.time() - t_start
+
+    # 6. Run verification checks V1–V8
+    verif = run_all_checks(run_dir, contract, skip_harness=False)
+    checks = verif.get("checks", {})
+
+    # 7. Generate run_report.md
+    check_names = {
+        "V1": "File Presence",
+        "V2": "AST Compilation",
+        "V3": "Contract Conformance",
+        "V4": "Static Call Resolution",
+        "V5": "Tkinter Method Collisions",
+        "V6": "Import Boundaries",
+        "V7": "Test Execution",
+        "V8": "UI Smoke Walkthrough Harness"
+    }
+
+    report_lines = [
+        f"# Run Report: {run_dir.name}",
+        "",
+        f"- **Timestamp**: {timestamp}",
+        f"- **Elapsed Time**: {elapsed:.2f} seconds",
+        f"- **Total Run Cost**: ${result['total_cost']:.6f}",
+        f"- **Cumulative Spend**: ${budget.total_spent:.6f}",
+        f"- **All Passed**: {'YES' if verif['all_passed'] else 'NO'}",
+        "",
+        "## First-Attempt Verification Summary (V1–V8)",
+        "",
+        "| Check | Name | First-Attempt Status | Errors |",
+        "|:---|:---|:---|:---|"
+    ]
+
+    for cid in ["V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8"]:
+        errs = checks.get(cid, [])
+        status = "PASS" if len(errs) == 0 else "FAIL"
+        err_msg = "; ".join(e.get("message", "") for e in errs) if errs else "None"
+        err_msg_clean = err_msg.replace("\n", " ").replace("|", "/")[:100]
+        report_lines.append(f"| {cid} | {check_names.get(cid, cid)} | **{status}** | {err_msg_clean} |")
+
+    report_lines.extend([
+        "",
+        "## Generated Files",
+        ""
+    ])
+    for f in result.get("files", []):
+        report_lines.append(f"- `{f}`")
+
+    if verif["errors"]:
+        report_lines.extend([
+            "",
+            "## Diagnostic Error Details",
+            ""
+        ])
+        for idx, e in enumerate(verif["errors"], 1):
+            report_lines.append(f"{idx}. **[{e.get('check')}]** `{e.get('file')}`: {e.get('message')}")
+
+    report_path = run_dir / "run_report.md"
+    report_path.write_text("\n".join(report_lines) + "\n", encoding="utf-8")
+
+    result["run_report"] = str(report_path)
+    result["verification"] = verif
+
+    print(f"\nCLI Run Completed: {run_dir.name}")
+    print(f"Total Run Cost: ${result['total_cost']:.6f} | Cumulative: ${budget.total_spent:.6f}")
+    print(f"Run Report written to: {report_path}")
+
+    return result
+
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) < 4 or sys.argv[1] in ("-h", "--help", "help"):
+        print("Usage: python -m src.agent <doc.md> <view.md> <output_root>")
+        sys.exit(0 if (len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help", "help")) else 2)
+    cli(sys.argv[1], sys.argv[2], sys.argv[3])
