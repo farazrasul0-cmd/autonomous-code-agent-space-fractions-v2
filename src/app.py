@@ -7,6 +7,7 @@ import time
 import queue
 import threading
 import subprocess
+import tempfile
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog, scrolledtext
@@ -548,7 +549,8 @@ class App(tk.Tk):
             self.queue.put({"type": "run_dir", "path": str(run_dir)})
 
             budget = Budget(run_cap=0.15, total_cap=0.85, spent=0.0, total_spent=curr_cum)
-            cache = Cache(cache_dir=".cache", mode="record")
+            cache_dir = Path(tempfile.gettempdir()) / "CodeAgent_cache"
+            cache = Cache(cache_dir=str(cache_dir), mode="record")
             client = Client(api_key=api_key, budget=budget, cache=cache)
             run_spent = 0.0
 

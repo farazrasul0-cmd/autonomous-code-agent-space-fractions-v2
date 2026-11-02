@@ -5,6 +5,7 @@ import sys
 import ast
 import json
 import time
+import tempfile
 import tkinter
 import py_compile
 from pathlib import Path
@@ -1846,7 +1847,8 @@ def cli(doc_path: str, view_path: str, output_root: str, api_key: str = None, ca
     # 3. Setup Budget, Cache, and Client
     curr_cumulative = get_current_cumulative_spend(repo_root / "runs")
     budget = Budget(run_cap=0.15, total_cap=0.85, spent=0.0, total_spent=curr_cumulative)
-    cache = Cache(cache_dir=".cache", mode="record" if cache_mode == "live" else "replay")
+    cache_dir = Path(tempfile.gettempdir()) / "CodeAgent_cache"
+    cache = Cache(cache_dir=str(cache_dir), mode="record" if cache_mode == "live" else "replay")
     client = Client(api_key=api_key, budget=budget, cache=cache)
 
     start_time_str = time.strftime("%Y-%m-%d %H:%M:%S")

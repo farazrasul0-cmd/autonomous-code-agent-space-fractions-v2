@@ -177,14 +177,18 @@ class Cache:
 
         key = self.compute_key(body)
         with self._lock:
-            os.makedirs(self.cache_dir, exist_ok=True)
-            path = self.get_path(key)
-            entry = {
-                "request": body,
-                "response": response_dict
-            }
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(entry, f, indent=2)
+            try:
+                os.makedirs(self.cache_dir, exist_ok=True)
+                path = self.get_path(key)
+                entry = {
+                    "request": body,
+                    "response": response_dict
+                }
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(entry, f, indent=2)
+            except OSError:
+                # In read-only or restricted environments, gracefully skip writing to cache
+                pass
 
 
 class Client:

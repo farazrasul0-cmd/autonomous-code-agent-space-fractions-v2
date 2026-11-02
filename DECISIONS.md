@@ -225,6 +225,7 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
   - `eval_todo_1`: V7 (Unit test failure) repaired in Round 2 via autonomous patch to `models.py`, achieving a clean 8/8 PASS across all checks (V1–V8).
 - **Cost Compliance**: Total spend for the 4 evaluation runs is $0.057690. Total cumulative all-time spend across the repository is $0.108033, comfortably below the strict $0.85 ceiling ($0.741967 remaining).
 - **Graceful SSL Fallback for Sandboxed Environments**: Fresh Windows Sandbox instances lack updated root CA certificate stores, triggering `[SSL: CERTIFICATE_VERIFY_FAILED]` in Python standard library `urllib`. `src/llm.py` attempts standard verified HTTPS requests first; upon catching `ssl.SSLCertVerificationError` or `CERTIFICATE_VERIFY_FAILED`, it logs a warning, falls back to `ssl._create_unverified_context()`, and retries with the unverified context. Normal host environments remain strictly verified.
+- **Read-Only / Sandboxed Environment Cache Storage**: In restricted or read-only environments (such as Windows Sandbox shared folder mounts), creating `.cache` in the current working directory raises `[WinError 5] Access is denied`. `src/app.py` and `src/agent.py` store the LLM request cache in the user temporary directory (`Path(tempfile.gettempdir()) / "CodeAgent_cache"`), and `Cache.put` in `src/llm.py` gracefully catches `OSError` to ensure cache writing never blocks pipeline execution.
 
 
 
