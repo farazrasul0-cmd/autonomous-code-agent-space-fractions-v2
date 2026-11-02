@@ -2,6 +2,7 @@
 import os
 import sys
 import unittest
+import unittest.mock
 import tempfile
 import json
 from pathlib import Path
@@ -75,9 +76,76 @@ class TestLLM(unittest.TestCase):
         with self.assertRaises(BudgetExceededError):
             budget.check()
 
+    def test_budget_checked_on_retry(self):
+        """Monkeypatch a transport that raises 429 once then succeeds; assert budget.check was called at least twice."""
+        budget = Budget(run_cap=0.15, total_cap=0.85)
+        check_calls = []
+        orig_check = budget.check
+
+        def spy_check(estimated_cost=0.0):
+            check_calls.append(estimated_cost)
+            return orig_check(estimated_cost)
+
+        budget.check = spy_check
+        client = Client(api_key="sk-test-mock-key-12345678", budget=budget)
+
+        call_count = 0
+        success_payload = json.dumps({
+            "choices": [{"message": {"content": "ok", "role": "assistant"}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 10}
+        }).encode("utf-8")
+
+        class MockResponse:
+            def read(self):
+                return success_payload
+            def __enter__(self):
+                return self
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        def mock_urlopen(req, timeout=60):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                import urllib.error
+                raise urllib.error.HTTPError(req.full_url, 429, "Too Many Requests", {}, None)
+            return MockResponse()
+
+        with unittest.mock.patch("urllib.request.urlopen", side_effect=mock_urlopen), \
+             unittest.mock.patch("time.sleep", return_value=None):
+            res = client.chat([{"role": "user", "content": "hello retry"}])
+
+        self.assertEqual(res["content"], "ok")
+        self.assertEqual(call_count, 2)
+        self.assertGreaterEqual(len(check_calls), 2, "budget.check must be called on each retry attempt")
+
+    def test_exception_never_contains_key(self):
+        """Force a JSONDecodeError containing 'sk-leak-test-1234567890'; catch LLMError; assert key redacted."""
+        client = Client(api_key="sk-leak-test-1234567890")
+
+        class MockResp:
+            def read(self):
+                return b"bad json data"
+            def __enter__(self):
+                return self
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        def mock_json_loads(data):
+            raise json.JSONDecodeError("sk-leak-test-1234567890 syntax error", data, 0)
+
+        with unittest.mock.patch("urllib.request.urlopen", return_value=MockResp()), \
+             unittest.mock.patch("json.loads", side_effect=mock_json_loads):
+            with self.assertRaises(LLMError) as ctx:
+                client.chat([{"role": "user", "content": "hi"}])
+
+        err_msg = str(ctx.exception)
+        self.assertNotIn("sk-leak", err_msg)
+        self.assertIn("[REDACTED]", err_msg)
+
     def test_truncated_response_surfaced(self):
-        """finish_reason='length' is returned intact, not retried automatically."""
-        truncated_response = {
+        """Use real Client with monkeypatched urlopen returning finish_reason 'length'. Assert urlopen called exactly once."""
+        raw_bytes = json.dumps({
             "choices": [{
                 "message": {"content": "def calculate_orbit(distance, mass):", "role": "assistant"},
                 "finish_reason": "length"
@@ -88,10 +156,23 @@ class TestLLM(unittest.TestCase):
                 "prompt_cache_hit_tokens": 0,
                 "prompt_cache_miss_tokens": 20
             }
-        }
-        client = FakeClient([truncated_response])
-        res = client.chat([{"role": "user", "content": "Write orbit calculation function"}])
+        }).encode("utf-8")
 
+        class MockResponse:
+            def read(self):
+                return raw_bytes
+            def __enter__(self):
+                return self
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        mock_open = unittest.mock.MagicMock(return_value=MockResponse())
+        client = Client(api_key="sk-test-key-12345678")
+
+        with unittest.mock.patch("urllib.request.urlopen", mock_open):
+            res = client.chat([{"role": "user", "content": "Write orbit calculation function"}])
+
+        mock_open.assert_called_once()
         self.assertEqual(res["finish_reason"], "length")
         self.assertEqual(res["content"], "def calculate_orbit(distance, mass):")
 
@@ -141,11 +222,12 @@ class TestLLM(unittest.TestCase):
                 client.chat(messages=[{"role": "user", "content": "Uncached prompt"}])
 
     def test_cache_never_contains_headers(self):
-        """Read cache file and assert 'Authorization' and API key value are not present."""
+        """Assert cache files never contain Authorization headers, Bearer tokens, or API keys across direct and client paths."""
         dummy_secret_key = "sk-super-secret-key-probe-987654321"
+
+        # Path 1: Direct cache.put
         with tempfile.TemporaryDirectory() as tmp_dir:
             cache = Cache(cache_dir=tmp_dir, mode="record")
-
             body = {
                 "model": "deepseek-v4-pro",
                 "messages": [{"role": "user", "content": "Hello"}],
@@ -157,18 +239,46 @@ class TestLLM(unittest.TestCase):
                 "choices": [{"message": {"content": "Hi there"}, "finish_reason": "stop"}],
                 "usage": {"prompt_tokens": 5, "completion_tokens": 2}
             }
-
             cache.put(body, fake_response)
             key = cache.compute_key(body)
             cache_file = os.path.join(tmp_dir, f"{key}.json")
             self.assertTrue(os.path.exists(cache_file))
-
             with open(cache_file, "r", encoding="utf-8") as f:
-                content = f.read()
+                content1 = f.read()
+            self.assertNotIn("Authorization", content1)
+            self.assertNotIn(dummy_secret_key, content1)
+            self.assertNotIn("Bearer", content1)
 
-            self.assertNotIn("Authorization", content)
-            self.assertNotIn(dummy_secret_key, content)
-            self.assertNotIn("Bearer", content)
+        # Path 2: Client.chat() in record mode with monkeypatched urlopen
+        with tempfile.TemporaryDirectory() as tmp_dir2:
+            cache2 = Cache(cache_dir=tmp_dir2, mode="record")
+            client = Client(api_key=dummy_secret_key, cache=cache2)
+
+            raw_bytes = json.dumps({
+                "choices": [{"message": {"content": "Live answer", "role": "assistant"}, "finish_reason": "stop"}],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 4, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 10}
+            }).encode("utf-8")
+
+            class MockResp:
+                def read(self):
+                    return raw_bytes
+                def __enter__(self):
+                    return self
+                def __exit__(self, exc_type, exc_val, exc_tb):
+                    pass
+
+            with unittest.mock.patch("urllib.request.urlopen", return_value=MockResp()):
+                res = client.chat([{"role": "user", "content": "Compute vector"}])
+
+            self.assertEqual(res["content"], "Live answer")
+            cached_files = [f for f in os.listdir(tmp_dir2) if f.endswith(".json")]
+            self.assertEqual(len(cached_files), 1)
+            with open(os.path.join(tmp_dir2, cached_files[0]), "r", encoding="utf-8") as f:
+                content2 = f.read()
+
+            self.assertNotIn("Authorization", content2)
+            self.assertNotIn(dummy_secret_key, content2)
+            self.assertNotIn("Bearer", content2)
 
     def test_fake_client_sequence(self):
         """FakeClient returns scripted responses in order."""
@@ -194,12 +304,6 @@ class TestLLM(unittest.TestCase):
 
     def test_cost_formula_matches_hand_calc(self):
         """Call budget.add with known usage dict from DECISIONS.md and assert cost matches hand arithmetic within $0.0000001."""
-        # DECISIONS.md Section 4 probe usage:
-        # prompt_cache_hit_tokens: 0
-        # prompt_cache_miss_tokens: 39
-        # completion_tokens: 6
-        # Expected off-peak cost:
-        # 39 * 0.00000066 + 6 * 0.00000198 = 0.00002574 + 0.00001188 = 0.00003762
         usage = {
             "prompt_tokens": 39,
             "completion_tokens": 6,

@@ -112,3 +112,12 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
 ## 6. Phase 6 Prerequisites (Standing Directive)
 
 - **Windowed-Mode Print Guard**: In PyInstaller windowed mode on Windows (`runw.exe`), `sys.stdout` and `sys.stderr` may be `None` or raise exceptions when written to directly. Before implementing code generation in Phase 6, all runtime code and generated Tkinter application entrypoints must include a print guard (redirecting `sys.stdout`/`sys.stderr` to a safe dummy stream/null or logging stream) to prevent silent crashes in windowed mode.
+
+---
+
+## 7. Operational Parameters & Cost Controls (Phase 4 Updates)
+
+- **Phase 4 Live Gate Scope**: Phase 4 live gate was a trivial 39-token call. Real budget behavior measured at Phase 8. If Phase 8 single-run cost > $0.25, drop evaluation to 1+1 per standing directive.
+- **Model Usage Policy**: `deepseek-flash` is available on the official models list but will NOT be used without supervisor approval.
+- **Budget Estimate Heuristic**: Budget estimate uses chars/3 heuristic + max_tokens * output price. This is conservative (assumes all miss, no cache hits).
+- **Keyword-Based Conflict Detection**: Conflicts detection is keyword-based; a second-input doc mentioning 'Dockerfile' as an optional artifact will NOT trigger the cloud-conflict entry. Keywords are explicitly narrowed to `web-based`, `microservices`, `kubernetes`, `redis`, `rabbitmq`, `docker-compose`, and `docker container`.

@@ -17,6 +17,7 @@ from src.parser import (
     split_headings,
     extract_requirements,
     extract_warnings,
+    extract_system_name,
 )
 
 
@@ -213,6 +214,34 @@ Student ->> Quiz: start()
                 os.remove(f_doc_path)
             if os.path.exists(f_view_path):
                 os.remove(f_view_path)
+
+    def test_system_name_fallback_chain(self):
+        """Test fallback chain for system_name extraction:
+        (a) 'The X system is' phrasing
+        (b) H1/H2/H3 heading only
+        (c) first-line-only document
+        """
+        # Case (a): 'The X system is' phrasing
+        doc_a = "Overview\nThe StellarNav system is designed for interstellar telemetry."
+        name_a = extract_system_name(doc_a)
+        self.assertEqual(name_a, "StellarNav")
+
+        # Case (b): H1/H2/H3 heading only
+        doc_b1 = "# PlanetForge Architecture\nDetails about simulation."
+        self.assertEqual(extract_system_name(doc_b1), "PlanetForge")
+
+        doc_b2 = "## OrbitSync System Architecture Documentation\nSync protocol."
+        self.assertEqual(extract_system_name(doc_b2), "OrbitSync")
+
+        doc_b3 = "### LunarLander\nThruster dynamics."
+        self.assertEqual(extract_system_name(doc_b3), "LunarLander")
+
+        # Case (c): first-line-only document without heading markdown
+        doc_c = "AstroPortal Telemetry Hub\nData ingest and telemetry distribution."
+        self.assertEqual(extract_system_name(doc_c), "AstroPortal Telemetry Hub")
+
+        # Empty fallback
+        self.assertEqual(extract_system_name(""), "Untitled System")
 
 
 if __name__ == "__main__":

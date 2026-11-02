@@ -228,32 +228,45 @@ def extract_requirements(doc_text):
         })
     return result
 
-def extract_system_name(doc_text, doc_sections):
-    """Extract system name from executive summary or headings, falling back to 'Untitled System'."""
+def extract_system_name(doc_text, doc_sections=None):
+    """Extract system name from executive summary, headings (H1-H3), or first non-empty line."""
+    if not doc_text:
+        return "Untitled System"
     clean_text = clean_escaped_markdown(doc_text)
+    if doc_sections is None:
+        doc_sections = {}
 
-    # Check for sentence: The <Name> system is ...
+    # 1. Check for sentence: The <Name> system is ...
     m = re.search(r'\bThe\s+([A-Z][A-Za-z0-9_\s]+?)\s+system\s+is\b', clean_text)
     if m:
         name = m.group(1).strip()
         if name:
             return name
 
-    # Check executive summary section specifically
+    # 2. Check executive summary section specifically
     for title, body in doc_sections.items():
         if "executive" in title.lower() or "summary" in title.lower():
             m2 = re.search(r'\bThe\s+([A-Z][A-Za-z0-9_\s]+?)\s+system\s+is\b', body)
             if m2:
                 return m2.group(1).strip()
 
-    # Fall back to the first # heading
-    heading_match = re.search(r'^#\s+(.+)$', clean_text, re.MULTILINE)
+    # 3. Fall back to H1/H2/H3 heading: r'^#{1,3}\s+(.+)$'
+    heading_match = re.search(r'^#{1,3}\s+(.+)$', clean_text, re.MULTILINE)
     if heading_match:
         raw_heading = heading_match.group(1).strip()
         cleaned = re.sub(r'^[A-Z0-9]\.\s*', '', raw_heading)
-        cleaned = re.sub(r'\s*(?:System Architecture Documentation|Architecture Documentation|Architecture View|System)\b.*$', '', cleaned, flags=re.IGNORECASE).strip()
+        cleaned = re.sub(r'\s*(?:System Architecture Documentation|Architecture Documentation|Architecture View|System Architecture|Architecture|System)\b.*$', '', cleaned, flags=re.IGNORECASE).strip()
         if cleaned:
             return cleaned
+
+    # 4. Fall back to first non-empty line of doc_text, strip markdown markers, truncate to 60 chars
+    for line in clean_text.splitlines():
+        line = line.strip()
+        if line:
+            stripped = re.sub(r'^[#*_`\->\s]+', '', line).strip()
+            stripped = stripped[:60].strip()
+            if re.search(r'\b[A-Za-z0-9]{3,}\b', stripped):
+                return stripped
 
     return "Untitled System"
 
@@ -331,7 +344,7 @@ def parse_architecture(doc_path, view_path):
 
     # Architectural conflicts entry (conditional on cloud/web keywords in doc_text)
     lower_doc = doc_text.lower()
-    cloud_keywords = ["web-based", "microservices", "kubernetes", "redis", "rabbitmq", "docker"]
+    cloud_keywords = ["web-based", "microservices", "kubernetes", "redis", "rabbitmq", "docker-compose", "docker container"]
     if any(kw in lower_doc for kw in cloud_keywords):
         conflicts = {
             "prescribed_stack": "Web microservices (Node.js, Express, PostgreSQL, Redis, RabbitMQ, Docker, Kubernetes).",

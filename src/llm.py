@@ -6,6 +6,15 @@ import hashlib
 import threading
 import urllib.request
 import urllib.error
+import re as _re
+
+_KEY_PATTERN = _re.compile(r"sk-[A-Za-z0-9\-]{8,}")
+
+def sanitize(text):
+    if text is None:
+        return ""
+    s = _KEY_PATTERN.sub("[REDACTED]", str(text))
+    return s[:200]
 
 # Official endpoints and constants locked in DECISIONS.md
 BASE_URL = "https://api.deepseek.com/chat/completions"
@@ -193,6 +202,10 @@ class Client:
         self.cache = cache
         self.max_tokens = max_tokens
 
+    def _estimate_cost(self, body, max_tokens):
+        prompt_tokens = sum(len(m.get("content", "")) for m in body["messages"]) // 3
+        return prompt_tokens * PRICE_IN_MISS + max_tokens * PRICE_OUT
+
     def _format_response(self, resp_dict, is_cached=False):
         """Format raw API response dictionary into client result dict."""
         choices = resp_dict.get("choices", [])
@@ -235,14 +248,11 @@ class Client:
             if cached_resp is not None:
                 return self._format_response(cached_resp, is_cached=True)
 
-        # 2. Check budget before network call
-        self.budget.check(estimated_cost=0.0)
-
-        # 3. Validate credentials
+        # 2. Validate credentials
         if not self.api_key:
             raise LLMError("DeepSeek API key not provided or found in environment/.env.")
 
-        # 4. Execute HTTP request with retry logic
+        # 3. Execute HTTP request with retry logic
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}"
@@ -255,6 +265,8 @@ class Client:
         network_retried = False
 
         for attempt in range(max_retries):
+            # Budget check inside the retry loop before each dispatch attempt
+            self.budget.check(self._estimate_cost(body, body["max_tokens"]))
             try:
                 with urllib.request.urlopen(req, timeout=60) as resp:
                     resp_bytes = resp.read()
@@ -272,7 +284,7 @@ class Client:
                     time.sleep(backoff_delays[attempt])
                     continue
                 # Sanitize error message: never include headers or API keys
-                raise LLMError(f"HTTP error {e.code}: {e.reason}")
+                raise LLMError(f"HTTP error {e.code}: {sanitize(e.reason)}")
 
             except urllib.error.URLError as e:
                 # Network error: retry once after 2 seconds
@@ -280,10 +292,10 @@ class Client:
                     network_retried = True
                     time.sleep(2.0)
                     continue
-                raise LLMError(f"Network error: {e.reason}")
+                raise LLMError(f"Network error: {sanitize(e.reason)}")
 
             except json.JSONDecodeError as e:
-                raise LLMError(f"Failed to parse API response as JSON: {str(e)}")
+                raise LLMError(f"Failed to parse API response as JSON: {sanitize(str(e))}")
 
         raise LLMError("Request failed after maximum retry attempts.")
 
@@ -368,4 +380,4 @@ def models(api_key=None, base_url=None):
             data = json.loads(resp.read().decode("utf-8"))
             return [m.get("id") for m in data.get("data", [])]
     except Exception as e:
-        raise LLMError(f"Failed to fetch models: {str(e)}")
+        raise LLMError(f"Failed to fetch models: {sanitize(str(e))}")
