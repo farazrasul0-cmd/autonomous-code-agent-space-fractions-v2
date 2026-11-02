@@ -8,9 +8,9 @@ Official standalone binary release of the DeepSeek Code Agent for Task 1 evaluat
 
 | Artifact | Distribution Type | SHA256 Checksum | Description |
 |:---|:---:|:---:|:---|
-| **`CodeAgent_onedir.zip`** | **Primary (Recommended)** | `4245D09763A12D3560F4813C9A073D97685D8576C57D5B1880BC767A0C3ADC29` | Complete unpacked folder bundle (`CodeAgent.exe` + `_internal/` runtime). Fastest startup, fully compatible with Windows Sandbox. |
-| **`CodeAgentOneFile.exe`** | Secondary (Single-file) | `4F1F857BD6B42C28899E9CFD8835421D67A4D3BEC5ECBA3D3953C0B9FEC2AF8B` | Standalone portable executable unpacking dynamically into `%TEMP%`. |
-| **`CodeAgent.exe`** (internal) | Binary Executable | `B2DD2147CDAA4220AA47ED18E66ECB2EB1FEDC70EF9328EAC1129FA24726F608` | Unpacked executable entrypoint within the onedir bundle. |
+| **`CodeAgent_onedir.zip`** | **Primary (Recommended)** | `DCCC0071EFC1ECBE7AFCCF7F0AF22136F00A478B99831AEA095A25D0EEB76F52` | Complete unpacked folder bundle (`CodeAgent.exe` + `_internal/` runtime). Fastest startup, fully compatible with Windows Sandbox. |
+| **`CodeAgentOneFile.exe`** | Secondary (Single-file) | `4E0F117FC3DEC1040F3F785C67959B20061C340BA48A9FBCDBD5BF36E8FCF1C8` | Standalone portable executable unpacking dynamically into `%TEMP%`. |
+| **`CodeAgent.exe`** (internal) | Binary Executable | `E54437D3A49FB0CAC3E4598EC29BB4E3E531EBC4C61224A2B82266782672820F` | Unpacked executable entrypoint within the onedir bundle. |
 
 ---
 
@@ -49,12 +49,12 @@ Official standalone binary release of the DeepSeek Code Agent for Task 1 evaluat
    - Diagnostic AST errors and runtime test failures are reinjected as structured observations.
    - The agent tool calling interface (`read_file`, `write_file`, `list_dir`, `run_checks`) autonomously modifies failing files until checks pass.
 4. **Sandboxed Environment Resiliency**:
-   - **Graceful SSL Fallback**: Automatically degrades to an unverified SSL context if fresh Windows Sandbox environments lack updated root CA certificates.
+   - **Opt-In TLS Bypass**: Strict TLS verification by default; explicit GUI checkbox allows bypassing in isolated sandboxes where root certificates are missing.
    - **Temp-Directory Cache**: Uses `%TEMP%\CodeAgent_cache` to support read-only shared folder mounts.
 5. **Generality Proven Across Diverse Architectures**:
    - Evaluated on **Space Fractions** (Gaming architecture: `Game`, `Question`, `User`, `Admin`).
    - Evaluated on **Smart To-Do List** (Productivity architecture: `Task`, `TaskManager`).
-   - Achieved 100% pass rate after autonomous self-repair across all 4 evaluation runs under a total token spend of **$0.108** (well below the $1.00 budget ceiling).
+   - Autonomous self-repair across runs under a total token spend of **$0.108** (well below the $1.00 budget ceiling).
 
 ---
 

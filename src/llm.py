@@ -97,7 +97,12 @@ class Budget:
         if not usage_dict:
             return 0.0
 
-        hit_tokens = usage_dict.get("prompt_cache_hit_tokens", 0) or 0
+        hit_tokens = usage_dict.get("prompt_cache_hit_tokens")
+        if hit_tokens is None:
+            hit_tokens = usage_dict.get("prompt_tokens_details", {}).get("cached_tokens", 0) or 0
+        else:
+            hit_tokens = hit_tokens or 0
+
         miss_tokens = usage_dict.get("prompt_cache_miss_tokens")
         prompt_tokens = usage_dict.get("prompt_tokens", 0) or 0
 

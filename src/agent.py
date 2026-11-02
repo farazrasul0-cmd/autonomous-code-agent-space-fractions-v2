@@ -565,7 +565,7 @@ def validate_contract(contract, spec):
     return problems
 
 
-def generate_contract(client, spec, max_tokens=8192, runs_dir="runs", log_file=None):
+def generate_contract(client, spec, max_tokens=8192, runs_dir="examples/runs", log_file=None):
     """Generate, validate, and return architectural contract. Retries once on validation failure."""
     prompt = build_contract_prompt(spec)
     messages = [
@@ -1803,7 +1803,7 @@ def generate_run_report(
     return "\n".join(lines) + "\n"
 
 
-def get_current_cumulative_spend(base_runs_dir: str | Path = "runs") -> float:
+def get_current_cumulative_spend(base_runs_dir: str | Path = "examples/runs") -> float:
     """Compute cumulative spend across all previous runs using run_log.jsonl as source of truth."""
     baseline = 0.020315  # Phase 1-5 fixed spend recorded in DECISIONS.md
     runs_path = Path(base_runs_dir)
@@ -1836,7 +1836,7 @@ def cli(doc_path: str, view_path: str, output_root: str, api_key: str = None, ca
 
     # 2. Setup run directory
     out_path = Path(output_root)
-    if out_path.name in ("runs", ".", ""):
+    if out_path.name in ("runs", "examples/runs", "examples", ".", ""):
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         run_dir = out_path / f"run_{timestamp}"
     else:
@@ -1845,7 +1845,7 @@ def cli(doc_path: str, view_path: str, output_root: str, api_key: str = None, ca
     log_file = run_dir / "run_log.jsonl"
 
     # 3. Setup Budget, Cache, and Client
-    curr_cumulative = get_current_cumulative_spend(repo_root / "runs")
+    curr_cumulative = get_current_cumulative_spend(repo_root / "examples" / "runs")
     budget = Budget(run_cap=0.15, total_cap=0.85, spent=0.0, total_spent=curr_cumulative)
     cache_dir = Path(tempfile.gettempdir()) / "CodeAgent_cache"
     cache = Cache(cache_dir=str(cache_dir), mode="record" if cache_mode == "live" else "replay")

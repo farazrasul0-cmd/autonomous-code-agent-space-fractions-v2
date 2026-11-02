@@ -36,7 +36,7 @@ class TestApp(unittest.TestCase):
 
     def test_get_current_cumulative_spend(self):
         """Verify cumulative spend calculation reads existing run_log.jsonl files."""
-        spend = get_current_cumulative_spend(repo_root / "runs")
+        spend = get_current_cumulative_spend(repo_root / "examples" / "runs")
         self.assertIsInstance(spend, float)
         self.assertGreaterEqual(spend, 0.070000, f"Expected cumulative spend >= $0.07, got {spend}")
 
@@ -101,7 +101,7 @@ class TestApp(unittest.TestCase):
             app._handle_event({
                 "type": "done",
                 "success": True,
-                "run_dir": str(repo_root / "runs"),
+                "run_dir": str(repo_root / "examples" / "runs"),
                 "main_py": str(repo_root / "contract.json")  # file exists for test
             })
             self.assertEqual(app.launch_game_btn.cget("state"), "normal")

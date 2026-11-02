@@ -50,7 +50,7 @@ def sanitize_log(text: str, current_key: str = None) -> str:
     return s
 
 
-def get_current_cumulative_spend(base_runs_dir: str | Path = "runs") -> float:
+def get_current_cumulative_spend(base_runs_dir: str | Path = "examples/runs") -> float:
     """Compute cumulative spend across all previous runs using run_log.jsonl as source of truth."""
     baseline = 0.020315  # Phase 1-5 fixed spend recorded in DECISIONS.md
     runs_path = Path(base_runs_dir)
@@ -241,7 +241,7 @@ class App(tk.Tk):
         out_lbl = ttk.Label(cfg_frame, text="Output Directory:")
         out_lbl.grid(row=4, column=0, sticky=tk.W, padx=5, pady=4)
 
-        self.out_var = tk.StringVar(value="runs")
+        self.out_var = tk.StringVar(value="examples/runs")
         self.out_entry = ttk.Entry(cfg_frame, textvariable=self.out_var, width=54)
         self.out_entry.grid(row=4, column=1, columnspan=2, sticky=tk.W, padx=5, pady=4)
 
@@ -483,7 +483,7 @@ class App(tk.Tk):
         """Validate inputs and launch background worker thread."""
         doc_path = self.doc_var.get().strip()
         view_path = self.view_var.get().strip()
-        out_root = self.out_var.get().strip() or "runs"
+        out_root = self.out_var.get().strip() or "examples/runs"
         api_key = self.key_var.get().strip() or get_api_key()
 
         if not doc_path or not Path(doc_path).exists():
@@ -570,7 +570,7 @@ class App(tk.Tk):
 
             budget = Budget(run_cap=0.15, total_cap=0.85, spent=0.0, total_spent=curr_cum)
             cache_dir = Path(tempfile.gettempdir()) / "CodeAgent_cache"
-            cache = Cache(cache_dir=str(cache_dir), mode="record")
+            cache = Cache(cache_dir=str(cache_dir), mode="live")
             client = Client(api_key=api_key, budget=budget, cache=cache, allow_unverified_tls=allow_tls)
             run_spent = 0.0
 
@@ -601,7 +601,7 @@ class App(tk.Tk):
                 with open(contract_file, "w", encoding="utf-8") as f:
                     json.dump(contract, f, indent=2)
                 contract_cost = contract_resp.get("cost", 0.0) if contract_resp else 0.0
-                run_spent += contract_cost
+                run_spent = budget.spent
                 self.queue.put({"type": "cost", "run_spent": run_spent, "total_spent": budget.total_spent})
                 problems = validate_contract(contract, spec)
 
@@ -691,7 +691,7 @@ class App(tk.Tk):
                 )
                 final_verif = repair_res["final_verification"]
                 repair_rounds = repair_res["rounds"]
-                run_spent += repair_res["total_cost"]
+                run_spent = budget.spent
 
                 self.queue.put({"type": "cost", "run_spent": budget.spent, "total_spent": budget.total_spent})
 
