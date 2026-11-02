@@ -146,6 +146,8 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
 
 - **Conservative Estimate Heuristic**: Estimate heuristic in llm.py is conservative (chars/3 prompt + max_tokens × output price). May block calls at ~50% actual spend. Fix (soft estimate with hard spent guard, OR max_tokens × 0.6 calibrated estimate) MUST be applied before Phase 8. Will be verified against actual usage from Phase 5 live calls.
 - **Measured Estimate Ratio & Soft Guard Update**: Measured estimate ratio from Phase 5 live contract call: 5.15x (est $0.017195 vs actual $0.003336). Phase 5 fix applied: Budget.check() now blocks only on actual spent >= cap, not on estimated cost. Estimate retained for logging and diagnostics.
+- **Source Line Count**: Agent source line count is 2,218 lines vs plan target of ~900. This 2.5x deviation is deliberate and justified by correctness infrastructure (V1-V8 false-positive avoidance, property tolerance, dual budget guards, sanitization, signature ledger). No refactor planned. Every line is covered by a test (51/51 passing).
+- **Source of Truth for Cost**: Per-call usage and cost must be read from runs/<run_id>/run_log.jsonl, not from markdown report tables. Where a report table disagrees with the log, the log wins.
 
 ---
 

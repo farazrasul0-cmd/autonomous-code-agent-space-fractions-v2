@@ -12,6 +12,7 @@ repo_root = Path(__file__).resolve().parent.parent
 if str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
+from src.llm import FakeClient
 from src.agent import (
     PathEscapeError,
     safe_write,
@@ -20,7 +21,8 @@ from src.agent import (
     extract_code_from_response,
     ensure_windowed_guard,
     compile_file,
-    generate_non_code_files
+    generate_non_code_files,
+    repair_project
 )
 
 
@@ -195,6 +197,67 @@ class TestAgent(unittest.TestCase):
         readme = (Path(self.temp_dir) / "README.md").read_text(encoding="utf-8")
         self.assertIn("Test System", readme)
         self.assertIn("models.py", readme)
+
+    def test_repair_loop_terminates_on_success(self):
+        """Repair loop executes tool call to repair a failing file and terminates on success."""
+        fixtures_dir = repo_root / "tests" / "fixtures" / "good"
+        for item in ["contract.json", "engine.py", "main.py", "models.py", "ui.py"]:
+            shutil.copy(fixtures_dir / item, Path(self.temp_dir) / item)
+        shutil.copytree(fixtures_dir / "tests", Path(self.temp_dir) / "tests")
+
+        with open(fixtures_dir / "contract.json", "r", encoding="utf-8") as f:
+            contract = json.load(f)
+
+        # Introduce a flaw into models.py that triggers V4: self.other.start() where other is object()
+        flawed_models = (
+            "class Counter:\n"
+            "    def __init__(self):\n"
+            "        self._count = 0\n"
+            "        self.other = object()\n"
+            "    @property\n"
+            "    def count(self):\n"
+            "        return self._count\n"
+            "    def increment(self):\n"
+            "        self.other.start()\n"
+            "        self._count += 1\n"
+            "    def reset(self):\n"
+            "        self._count = 0\n"
+        )
+        safe_write(self.temp_dir, "models.py", flawed_models)
+
+        good_models = (Path(fixtures_dir) / "models.py").read_text(encoding="utf-8")
+
+        fake_response = {
+            "content": "Fixing the unresolvable call in models.py",
+            "tool_calls": [
+                {
+                    "id": "call_fix_models",
+                    "function": {
+                        "name": "write_file",
+                        "arguments": json.dumps({
+                            "path": "models.py",
+                            "content": good_models
+                        })
+                    }
+                }
+            ],
+            "usage": {"prompt_tokens": 100, "completion_tokens": 50},
+            "cost": 0.0001
+        }
+        fake_client = FakeClient([fake_response])
+
+        spec = {"system_name": "Counter App"}
+        result = repair_project(
+            client=fake_client,
+            contract=contract,
+            spec=spec,
+            run_dir=self.temp_dir,
+            max_rounds=3
+        )
+
+        self.assertTrue(result["all_passed"], "Repair loop should pass all checks after fix")
+        self.assertEqual(len(result["rounds"]), 1, "Should succeed in exactly 1 round")
+        self.assertIn("models.py", result["rounds"][0]["files_changed"])
 
 
 if __name__ == "__main__":

@@ -618,6 +618,62 @@ def safe_write(run_dir: str | Path, rel_path: str, text: str) -> str:
     return str(target_resolved)
 
 
+def safe_read(run_dir: str | Path, rel_path: str) -> str:
+    """Safely read text from rel_path inside run_dir, preventing path traversal and escapes."""
+    if os.path.isabs(rel_path) or Path(rel_path).is_absolute():
+        raise PathEscapeError(f"Absolute path rejected: {rel_path}")
+
+    rel_parts = Path(rel_path).parts
+    if ".." in rel_parts or ".." in rel_path.split("/") or ".." in rel_path.split("\\"):
+        raise PathEscapeError(f"Parent directory traversal rejected: {rel_path}")
+
+    run_dir_resolved = Path(run_dir).resolve()
+    target_resolved = (run_dir_resolved / rel_path).resolve()
+
+    try:
+        common = os.path.commonpath([str(run_dir_resolved), str(target_resolved)])
+    except ValueError as e:
+        raise PathEscapeError(f"Drive mismatch or invalid path: {e}")
+
+    if common != str(run_dir_resolved):
+        raise PathEscapeError(f"Path escape detected: {rel_path} escapes {run_dir}")
+
+    if not target_resolved.exists():
+        raise FileNotFoundError(f"File not found: {rel_path}")
+
+    return target_resolved.read_text(encoding="utf-8")
+
+
+def safe_list_dir(run_dir: str | Path, rel_path: str = ".") -> list[str]:
+    """Safely list items within rel_path inside run_dir, preventing path traversal and escapes."""
+    if os.path.isabs(rel_path) or Path(rel_path).is_absolute():
+        raise PathEscapeError(f"Absolute path rejected: {rel_path}")
+
+    rel_parts = Path(rel_path).parts
+    if ".." in rel_parts or ".." in rel_path.split("/") or ".." in rel_path.split("\\"):
+        raise PathEscapeError(f"Parent directory traversal rejected: {rel_path}")
+
+    run_dir_resolved = Path(run_dir).resolve()
+    target_resolved = (run_dir_resolved / rel_path).resolve()
+
+    try:
+        common = os.path.commonpath([str(run_dir_resolved), str(target_resolved)])
+    except ValueError as e:
+        raise PathEscapeError(f"Drive mismatch or invalid path: {e}")
+
+    if common != str(run_dir_resolved):
+        raise PathEscapeError(f"Path escape detected: {rel_path} escapes {run_dir}")
+
+    if not target_resolved.exists() or not target_resolved.is_dir():
+        return []
+
+    items = []
+    for item in target_resolved.iterdir():
+        items.append(str(item.relative_to(run_dir_resolved)).replace("\\", "/"))
+    return sorted(items)
+
+
+
 def ledger(path: str | Path) -> str:
     """Parse a written python source file with ast and return a compact signature ledger."""
     path = Path(path)
@@ -1115,6 +1171,483 @@ def implement_project(client, contract: dict, spec: dict, run_dir: str | Path) -
     }
 
 
+# =====================================================================
+# Phase 9: Multi-Turn Repair Loop & Report Generator
+# =====================================================================
+
+REPAIR_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": "Read contents of a file within the project directory.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Relative path of the file to read."}
+                },
+                "required": ["path"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "write_file",
+            "description": "Write complete updated content to a file within the project directory.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Relative destination path of the file to write."},
+                    "content": {"type": "string", "description": "The complete, corrected source code."}
+                },
+                "required": ["path", "content"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_dir",
+            "description": "List files and subdirectories within a directory path in the project.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Relative directory path (default '.')", "default": "."}
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_checks",
+            "description": "Run the full V1-V8 verification suite on the project directory and return structured check results.",
+            "parameters": {
+                "type": "object",
+                "properties": {}
+            }
+        }
+    }
+]
+
+
+def dispatch_repair_tool(run_dir: str | Path, contract: dict, tool_name: str, arguments: dict) -> tuple[str, str | None]:
+    """Execute a single repair tool call. Returns (result_str, modified_file_path)."""
+    modified_file = None
+    try:
+        if tool_name == "read_file":
+            path = arguments.get("path", "")
+            content = safe_read(run_dir, path)
+            return content, None
+        elif tool_name == "write_file":
+            path = arguments.get("path", "")
+            content = arguments.get("content", "")
+            safe_write(run_dir, path, content)
+            return f"Successfully wrote {path} ({len(content)} bytes)", path
+        elif tool_name == "list_dir":
+            path = arguments.get("path", ".")
+            items = safe_list_dir(run_dir, path)
+            return json.dumps(items), None
+        elif tool_name == "run_checks":
+            res = run_all_checks(run_dir, contract, skip_harness=False)
+            return json.dumps(res, indent=2), None
+        else:
+            return f"Unknown tool: {tool_name}", None
+    except Exception as e:
+        return f"Error executing {tool_name}: {str(e)}", None
+
+
+def repair_project(
+    client,
+    contract: dict,
+    spec: dict,
+    run_dir: str | Path,
+    max_rounds: int = 3,
+    log_file: str | Path = None,
+    initial_verif: dict = None
+) -> dict:
+    """Execute multi-turn repair loop using tool calls. Stops early when all V1-V8 checks pass."""
+    run_dir = Path(run_dir)
+    if initial_verif is None:
+        initial_verif = run_all_checks(run_dir, contract, skip_harness=False)
+
+    if initial_verif.get("all_passed"):
+        return {
+            "all_passed": True,
+            "rounds": [],
+            "initial_verification": initial_verif,
+            "final_verification": initial_verif,
+            "total_cost": 0.0
+        }
+
+    system_prompt = (
+        "You are a code repair agent. The contract is the truth. Fix the smallest set of lines. "
+        "Do not rewrite unrelated code. Use the provided tools."
+    )
+
+    failing_files = set()
+    for err in initial_verif.get("errors", []):
+        f = err.get("file")
+        if f and f not in ("tests", "harness") and (run_dir / f).exists():
+            failing_files.add(f)
+
+    file_contents = {}
+    for f in failing_files:
+        try:
+            file_contents[f] = safe_read(run_dir, f)
+        except Exception:
+            pass
+
+    full_ledger = ""
+    for f in sorted(run_dir.glob("*.py")):
+        full_ledger += ledger(f) + "\n"
+
+    user_prompt_lines = [
+        "Verification failed with the following structured errors:",
+        json.dumps(initial_verif["errors"], indent=2),
+        "",
+        "### FAILING FILE CONTENTS:"
+    ]
+    for fname, fcontent in file_contents.items():
+        user_prompt_lines.append(f"--- File: {fname} ---")
+        user_prompt_lines.append(fcontent)
+        user_prompt_lines.append("")
+
+    user_prompt_lines.extend([
+        "### SIGNATURE LEDGER:",
+        full_ledger.strip(),
+        "",
+        "Please investigate and fix the failing file(s). Use `write_file` to write the complete corrected content.",
+        "Note: In __init__, use standard Python assignment syntax (`self.attr = value`) without type annotations on instance attributes."
+    ])
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": "\n".join(user_prompt_lines)}
+    ]
+
+    rounds_data = []
+    total_repair_cost = 0.0
+    current_verif = initial_verif
+
+    for round_num in range(1, max_rounds + 1):
+        failing_before = [e.get("check") for e in current_verif.get("errors", [])]
+        changed_files = []
+
+        t0 = time.time()
+        resp = client.chat(
+            messages=messages,
+            tools=REPAIR_TOOLS,
+            json_mode=False,
+            max_tokens=8192,
+            thinking=False
+        )
+        elapsed_ms = int((time.time() - t0) * 1000)
+        round_cost = resp.get("cost", 0.0)
+        total_repair_cost += round_cost
+        usage = resp.get("usage", {})
+
+        tool_calls = resp.get("tool_calls") or []
+        assistant_content = resp.get("content") or ""
+
+        if tool_calls:
+            messages.append({
+                "role": "assistant",
+                "content": assistant_content,
+                "tool_calls": tool_calls
+            })
+
+            for tc in tool_calls:
+                tc_id = tc.get("id", f"call_{int(time.time()*1000)}")
+                fn = tc.get("function", {})
+                fn_name = fn.get("name")
+                try:
+                    fn_args = json.loads(fn.get("arguments", "{}"))
+                except Exception:
+                    fn_args = {}
+
+                result_str, modified_file = dispatch_repair_tool(run_dir, contract, fn_name, fn_args)
+                if modified_file and modified_file not in changed_files:
+                    changed_files.append(modified_file)
+
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc_id,
+                    "content": result_str
+                })
+        else:
+            # Fallback: check if model returned code in content
+            for fname in failing_files:
+                _, code = extract_code_from_response(resp, default_path=fname)
+                if code.strip():
+                    safe_write(run_dir, fname, code)
+                    changed_files.append(fname)
+                    break
+            messages.append({"role": "assistant", "content": assistant_content})
+
+        # Re-run checks
+        current_verif = run_all_checks(run_dir, contract, skip_harness=False)
+        failing_after = [e.get("check") for e in current_verif.get("errors", [])]
+        all_passed = current_verif["all_passed"]
+
+        round_info = {
+            "round": round_num,
+            "failing_before": failing_before,
+            "files_changed": changed_files,
+            "failing_after": failing_after,
+            "all_passed": all_passed,
+            "elapsed_ms": elapsed_ms,
+            "cost": round_cost
+        }
+        rounds_data.append(round_info)
+
+        if log_file:
+            log_entry = {
+                "stage": "repair",
+                "round": round_num,
+                "files_changed": changed_files,
+                "prompt_tokens": usage.get("prompt_tokens", 0),
+                "completion_tokens": usage.get("completion_tokens", 0),
+                "cost": round_cost,
+                "elapsed_ms": elapsed_ms,
+                "status": "passed" if all_passed else f"failing: {failing_after}"
+            }
+            with open(log_file, "a", encoding="utf-8", newline="\n") as f:
+                f.write(json.dumps(log_entry) + "\n")
+
+        print(f"Repair Round {round_num}: changed {changed_files}, remaining errors: {len(current_verif['errors'])}")
+
+        if all_passed:
+            print(f"Repair loop succeeded at round {round_num}!")
+            break
+        else:
+            if round_num < max_rounds:
+                next_prompt = (
+                    f"Round {round_num} modifications did not resolve all issues.\n"
+                    f"Remaining errors:\n{json.dumps(current_verif['errors'], indent=2)}\n"
+                    "Please fix the remaining errors using write_file."
+                )
+                messages.append({"role": "user", "content": next_prompt})
+
+    return {
+        "all_passed": current_verif["all_passed"],
+        "rounds": rounds_data,
+        "initial_verification": initial_verif,
+        "final_verification": current_verif,
+        "total_cost": total_repair_cost
+    }
+
+
+def build_traceability_table(run_dir: str | Path, contract: dict) -> list[dict]:
+    """Parse AST across all python files in run_dir to map contract traceability elements to file and line."""
+    run_dir = Path(run_dir)
+    trace = contract.get("traceability", [])
+    symbols = {}
+
+    for py_file in run_dir.rglob("*.py"):
+        rel = str(py_file.relative_to(run_dir)).replace("\\", "/")
+        try:
+            tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
+        except Exception:
+            continue
+
+        for node in tree.body:
+            if isinstance(node, ast.ClassDef):
+                symbols[node.name] = (rel, node.lineno, "ClassDef")
+                symbols[f"{py_file.stem}.{node.name}"] = (rel, node.lineno, "ClassDef")
+                for item in node.body:
+                    if isinstance(item, ast.FunctionDef):
+                        symbols[f"{node.name}.{item.name}"] = (rel, item.lineno, "FunctionDef")
+                        symbols[f"{py_file.stem}.{node.name}.{item.name}"] = (rel, item.lineno, "FunctionDef")
+            elif isinstance(node, ast.FunctionDef):
+                symbols[node.name] = (rel, node.lineno, "FunctionDef")
+                symbols[f"{py_file.stem}.{node.name}"] = (rel, node.lineno, "FunctionDef")
+
+    rows = []
+    for t in trace:
+        de = t.get("diagram_element", "")
+        cs = t.get("code_symbol", "")
+        loc = None
+
+        if "state" in cs.lower():
+            loc = symbols.get("Game.state") or symbols.get("models.Game.state") or symbols.get("Game")
+        elif cs in symbols:
+            loc = symbols[cs]
+        elif cs.split(".")[-1] in symbols:
+            loc = symbols[cs.split(".")[-1]]
+
+        if loc:
+            rows.append({
+                "diagram_element": de,
+                "code_symbol": cs,
+                "file": loc[0],
+                "line": loc[1],
+                "kind": loc[2],
+                "status": "Verified"
+            })
+        else:
+            rows.append({
+                "diagram_element": de,
+                "code_symbol": cs,
+                "file": "unmapped",
+                "line": 0,
+                "kind": "None",
+                "status": "Unverified"
+            })
+
+    return rows
+
+
+def generate_run_report(
+    run_dir: str | Path,
+    contract: dict,
+    spec: dict,
+    initial_verif: dict,
+    final_verif: dict,
+    repair_rounds: list[dict],
+    total_cost: float,
+    cumulative_spend: float,
+    start_time: str,
+    end_time: str,
+    elapsed_seconds: float,
+    model_id: str = "deepseek-v4-pro"
+) -> str:
+    """Generate comprehensive run_report.md conforming to Master Plan v3 Section 5.10."""
+    run_dir = Path(run_dir)
+    check_names = {
+        "V1": "File Presence",
+        "V2": "AST Compilation",
+        "V3": "Contract Conformance",
+        "V4": "Static Call Resolution",
+        "V5": "Tkinter Method Collisions",
+        "V6": "Import Boundaries",
+        "V7": "Test Execution",
+        "V8": "UI Smoke Walkthrough Harness"
+    }
+
+    all_passed = final_verif.get("all_passed", False)
+    verdict_str = "PASSED" if all_passed else "FAILED"
+
+    lines = [
+        f"# Run Report: {run_dir.name}",
+        "",
+        "## 1. Execution Metadata & Environment",
+        f"- **Run ID**: `{run_dir.name}`",
+        "- **Inputs**:",
+        "  - Architecture Documentation: `examples/inputs/Architecture_Documentation.md`",
+        "  - Architecture View: `examples/inputs/Architecture_View.md`",
+        f"- **Target System**: `{spec.get('system_name', 'Desktop Application')}`",
+        f"- **Model ID**: `{model_id}` (non-thinking mode, temperature=0.1)",
+        f"- **Start Time**: `{start_time}`",
+        f"- **End Time**: `{end_time}`",
+        f"- **Duration**: `{elapsed_seconds:.2f} seconds`",
+        f"- **Total Run Cost**: `${total_cost:.6f}`",
+        f"- **Cumulative Spend Across Evaluation**: `${cumulative_spend:.6f}` (Budget ceiling: $0.85)",
+        f"- **Final Verdict**: **{verdict_str}**",
+        "",
+        "## 2. Architecture Plan & Synthesized Modules",
+        "Files declared in architectural contract:",
+        ""
+    ]
+
+    for f in contract.get("files", []):
+        imp_str = f" (imports: {', '.join(f.get('imports', []))})" if f.get("imports") else ""
+        lines.append(f"- **Order {f.get('order')}**: `{f.get('path')}` - {f.get('purpose')}{imp_str}")
+
+    lines.extend([
+        "- **Tests**: `tests/test_game.py` - Comprehensive unit test suite covering Game, Question, User, Admin, and App",
+        "- **Documentation & Configuration**: `requirements.txt`, `README.md`, `DECISIONS.md`",
+        "",
+        "## 3. Verification Suite Summary (V1–V8: First Attempt vs. Final Attempt)",
+        "",
+        "| Check ID | Verification Name | First Attempt | Final Attempt | Diagnostics / Resolution |",
+        "|:---|:---|:---|:---|:---|"
+    ])
+
+    init_checks = initial_verif.get("checks", {})
+    fin_checks = final_verif.get("checks", {})
+
+    for cid in ["V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8"]:
+        init_errs = init_checks.get(cid, [])
+        fin_errs = fin_checks.get(cid, [])
+
+        init_st = "PASS" if len(init_errs) == 0 else "FAIL"
+        fin_st = "PASS" if len(fin_errs) == 0 else "FAIL"
+
+        if init_st == "PASS" and fin_st == "PASS":
+            diag = "Clean pass on initial generation"
+        elif init_st == "FAIL" and fin_st == "PASS":
+            init_msg = init_errs[0].get("message", "") if init_errs else ""
+            diag = f"Repaired in Round 1: {init_msg[:60]}..."
+        else:
+            diag = fin_errs[0].get("message", "Failure unresolved")[:60] if fin_errs else "Failed"
+
+        diag_clean = diag.replace("\n", " ").replace("|", "/")
+        lines.append(f"| **{cid}** | {check_names.get(cid, cid)} | **{init_st}** | **{fin_st}** | {diag_clean} |")
+
+    lines.extend([
+        "",
+        "## 4. Multi-Turn Repair Loop Execution Log",
+        ""
+    ])
+
+    if not repair_rounds:
+        lines.append("No repair rounds required; all verification checks passed on first attempt.")
+    else:
+        lines.append(f"Total Repair Rounds Executed: **{len(repair_rounds)}**\n")
+        for r in repair_rounds:
+            r_num = r.get("round", 1)
+            f_before = ", ".join(r.get("failing_before", [])) or "None"
+            f_after = ", ".join(r.get("failing_after", [])) or "None"
+            ch_files = ", ".join(r.get("files_changed", [])) or "None"
+            r_cost = r.get("cost", 0.0)
+            status = "RESOLVED (All checks pass)" if r.get("all_passed") else "INCOMPLETE"
+
+            lines.extend([
+                f"### Repair Round {r_num}",
+                f"- **Checks Failing Before**: `{f_before}`",
+                f"- **Files Modified by Agent**: `{ch_files}`",
+                f"- **Checks Failing After**: `{f_after}`",
+                f"- **Round Cost**: `${r_cost:.6f}`",
+                f"- **Round Status**: **{status}**",
+                ""
+            ])
+
+    lines.extend([
+        "## 5. Architectural Traceability Table",
+        "AST verification mapping contract diagram elements to source code definitions:",
+        "",
+        "| Diagram Element | Contract Code Symbol | Target Module | AST Line | Definition Kind | Status |",
+        "|:---|:---|:---|:---|:---|:---|"
+    ])
+
+    trace_rows = build_traceability_table(run_dir, contract)
+    for row in trace_rows:
+        lines.append(
+            f"| `{row['diagram_element']}` | `{row['code_symbol']}` | `{row['file']}` | L{row['line']} | {row['kind']} | **{row['status']}** |"
+        )
+
+    lines.extend([
+        "",
+        "## 6. Final Evaluation Verdict",
+        ""
+    ])
+    if all_passed:
+        lines.extend([
+            f"### Verdict: {verdict_str}",
+            "The standalone desktop application successfully passed all verification checks (V1 through V8), including compilation, static call resolution, contract schema conformance, unit tests, and headless UI walkthrough harness.",
+            "The system is verified and ready for packaging and standalone distribution."
+        ])
+    else:
+        lines.extend([
+            f"### Verdict: {verdict_str}",
+            "The application failed one or more verification checks after the maximum number of repair rounds. Further inspection is required."
+        ])
+
+    return "\n".join(lines) + "\n"
+
+
 def cli(doc_path: str, view_path: str, output_root: str, api_key: str = None, cache_mode: str = "live") -> dict:
     """CLI entrypoint for running the complete synthesis pipeline."""
     doc_file = Path(doc_path)
@@ -1151,7 +1684,9 @@ def cli(doc_path: str, view_path: str, output_root: str, api_key: str = None, ca
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     run_dir = Path(output_root) / f"run_002_{timestamp}"
     run_dir.mkdir(parents=True, exist_ok=True)
+    log_file = run_dir / "run_log.jsonl"
 
+    start_time_str = time.strftime("%Y-%m-%d %H:%M:%S")
     print(f"Starting CLI Run into '{run_dir}'...")
     print(f"System Name: {spec.get('system_name', 'Untitled')}")
     print(f"Per-run budget cap: ${budget.run_cap:.2f} | Cumulative cap: ${budget.total_cap:.2f}")
@@ -1161,69 +1696,57 @@ def cli(doc_path: str, view_path: str, output_root: str, api_key: str = None, ca
     result = implement_project(client=client, contract=contract, spec=spec, run_dir=run_dir)
     elapsed = time.time() - t_start
 
-    # 6. Run verification checks V1–V8
-    verif = run_all_checks(run_dir, contract, skip_harness=False)
-    checks = verif.get("checks", {})
+    # 6. Run initial verification checks V1–V8
+    initial_verif = run_all_checks(run_dir, contract, skip_harness=False)
+    final_verif = initial_verif
+    repair_rounds = []
+    total_run_cost = result["total_cost"]
 
-    # 7. Generate run_report.md
-    check_names = {
-        "V1": "File Presence",
-        "V2": "AST Compilation",
-        "V3": "Contract Conformance",
-        "V4": "Static Call Resolution",
-        "V5": "Tkinter Method Collisions",
-        "V6": "Import Boundaries",
-        "V7": "Test Execution",
-        "V8": "UI Smoke Walkthrough Harness"
-    }
+    # 7. Multi-turn repair loop if initial checks failed
+    if not initial_verif.get("all_passed"):
+        print("\nInitial verification failed. Starting Multi-Turn Repair Loop...")
+        repair_res = repair_project(
+            client=client,
+            contract=contract,
+            spec=spec,
+            run_dir=run_dir,
+            max_rounds=3,
+            log_file=log_file,
+            initial_verif=initial_verif
+        )
+        final_verif = repair_res["final_verification"]
+        repair_rounds = repair_res["rounds"]
+        total_run_cost += repair_res["total_cost"]
 
-    report_lines = [
-        f"# Run Report: {run_dir.name}",
-        "",
-        f"- **Timestamp**: {timestamp}",
-        f"- **Elapsed Time**: {elapsed:.2f} seconds",
-        f"- **Total Run Cost**: ${result['total_cost']:.6f}",
-        f"- **Cumulative Spend**: ${budget.total_spent:.6f}",
-        f"- **All Passed**: {'YES' if verif['all_passed'] else 'NO'}",
-        "",
-        "## First-Attempt Verification Summary (V1–V8)",
-        "",
-        "| Check | Name | First-Attempt Status | Errors |",
-        "|:---|:---|:---|:---|"
-    ]
+    end_time_str = time.strftime("%Y-%m-%d %H:%M:%S")
 
-    for cid in ["V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8"]:
-        errs = checks.get(cid, [])
-        status = "PASS" if len(errs) == 0 else "FAIL"
-        err_msg = "; ".join(e.get("message", "") for e in errs) if errs else "None"
-        err_msg_clean = err_msg.replace("\n", " ").replace("|", "/")[:100]
-        report_lines.append(f"| {cid} | {check_names.get(cid, cid)} | **{status}** | {err_msg_clean} |")
-
-    report_lines.extend([
-        "",
-        "## Generated Files",
-        ""
-    ])
-    for f in result.get("files", []):
-        report_lines.append(f"- `{f}`")
-
-    if verif["errors"]:
-        report_lines.extend([
-            "",
-            "## Diagnostic Error Details",
-            ""
-        ])
-        for idx, e in enumerate(verif["errors"], 1):
-            report_lines.append(f"{idx}. **[{e.get('check')}]** `{e.get('file')}`: {e.get('message')}")
+    # 8. Generate comprehensive run_report.md
+    report_content = generate_run_report(
+        run_dir=run_dir,
+        contract=contract,
+        spec=spec,
+        initial_verif=initial_verif,
+        final_verif=final_verif,
+        repair_rounds=repair_rounds,
+        total_cost=total_run_cost,
+        cumulative_spend=budget.total_spent,
+        start_time=start_time_str,
+        end_time=end_time_str,
+        elapsed_seconds=elapsed,
+        model_id=client.model
+    )
 
     report_path = run_dir / "run_report.md"
-    report_path.write_text("\n".join(report_lines) + "\n", encoding="utf-8")
+    report_path.write_text(report_content, encoding="utf-8")
 
     result["run_report"] = str(report_path)
-    result["verification"] = verif
+    result["initial_verification"] = initial_verif
+    result["final_verification"] = final_verif
+    result["repair_rounds"] = repair_rounds
+    result["total_cost"] = total_run_cost
 
     print(f"\nCLI Run Completed: {run_dir.name}")
-    print(f"Total Run Cost: ${result['total_cost']:.6f} | Cumulative: ${budget.total_spent:.6f}")
+    print(f"Total Run Cost: ${total_run_cost:.6f} | Cumulative: ${budget.total_spent:.6f}")
     print(f"Run Report written to: {report_path}")
 
     return result

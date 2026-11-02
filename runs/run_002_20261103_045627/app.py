@@ -25,13 +25,13 @@ class App:
             root: The Tk root window instance.
         """
         self._root = root
-        self._current_user: Optional[User] = None
-        self._current_game: Optional[Game] = None
-        self._questions: List[Question] = self._seed_questions()
+        self._current_user = None
+        self._current_game = None
+        self._questions = self._seed_questions()
 
-        self._screen_frame: Optional[tk.Frame] = None
-        self._status_var: tk.StringVar = tk.StringVar(value="Ready")
-        self._question_index: int = 0
+        self._screen_frame = None
+        self._status_var = tk.StringVar(value="Ready")
+        self._question_index = 0
 
         self._configure_root()
         self.show_menu()
