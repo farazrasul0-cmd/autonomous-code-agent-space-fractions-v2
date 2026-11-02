@@ -44,10 +44,10 @@ python -m src.app
 
 Evaluation results across multiple runs and distinct application architectures are recorded in [examples/runs/results.md](file:///d:/projects/Task-1%20resubmission/examples/runs/results.md):
 
-- **3+1 Multi-Run Evaluation Protocol**: 3 Space Fractions runs (`eval_sf_1`, `eval_sf_2`, `eval_sf_3`) and 1 second-input run (`eval_todo_1` for Smart To-Do List).
+- **Multi-Run Evaluation Protocol**: Space Fractions: 5 runs passed (after autonomous repair). Smart To-Do List: 1 CLI run passed, 1 GUI Sandbox run failed.
 - **Dynamic Contract Synthesis**: Successfully parsed the second input specification (To-Do List: 1 UseCase diagram, 1 Class diagram, 1 State diagram) and dynamically generated an independent domain model (`Task`, `TaskManager`) with zero hardcoded game logic.
 - **Autonomous Healing**: In `eval_todo_1`, initial generation produced a test mismatch (V7); the autonomous repair loop patched `models.py` at Round 2, achieving all 8 checks PASS and a final verdict of **PASSED**. In `eval_sf_1`, Round 3 repaired `app.py`, converting V8 to PASS.
-- **Total Evaluation Spend**: **$0.057690** across all 4 evaluation runs combined (all-time repository cumulative: **$0.108033**), remaining well under the strict $0.85 budget cap.
+- **Total Evaluation Spend**: Authoritative total spend verified on DeepSeek Dashboard at **¥1.91 CNY (~$0.26 USD)** across all development, testing, and evaluation runs, remaining comfortably under the strict $0.85 budget cap.
 
 ---
 

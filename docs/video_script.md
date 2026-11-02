@@ -58,5 +58,5 @@
 - **Visual**: Open `examples/runs/results.md`.
 - **Narrator**:
   > "To prove generality and eliminate hardcoding, we conducted a 3+1 multi-run evaluation: 3 runs on Space Fractions, and 1 run on a completely distinct Smart To-Do List application.
-  > The agent parsed the To-Do architecture, synthesized a completely independent domain model and GUI, repaired its own unit tests at Round 2, and achieved a 100% pass rate after repair.
-  > Total evaluation spend across all 4 runs was just under $0.058, well within the $1.00 cap. Thank you."
+  > The agent parsed the To-Do architecture, synthesized a completely independent domain model and GUI, repaired its own unit tests at Round 2, and achieved all 8 verification checks passing.
+  > Authoritative project spend verified on the DeepSeek Dashboard was ¥1.91 CNY (~$0.26 USD), well within the $1.00 cap. Thank you."

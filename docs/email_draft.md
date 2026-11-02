@@ -11,11 +11,11 @@ Thank you for the opportunity to take the evaluation. I have completed the imple
 What changed in the architecture: 
 1. Contract-First Generation: The agent parses the UML docs and writes a strict contract before a single line of app code is generated.
 2. Verification & Repair Loop: It uses AST static analysis to check for cross-file API mismatches (your bug examples), runs unit tests, and performs a headless UI walkthrough to catch runtime crashes, autonomously repairing them.
-3. Generality: To prove it is not hardcoded, I evaluated it on the Space Fractions input (3 runs) and a completely different To-Do list input (1 run). The To-Do list achieved 100% pass (all 8 checks PASS) after 2 autonomous repair rounds, and in Space Fractions the repair loop fixed the UI bug converting V8 to PASS.
+3. Generality: To prove it is not hardcoded, I evaluated it on the Space Fractions input and a completely different To-Do list input. Space Fractions: 5 runs passed (after autonomous repair). Smart To-Do List: 1 CLI run passed, 1 GUI Sandbox run failed.
 
 Evaluation Results & Cost:
-- Pass Rate: To-Do list reached 100% pass after Round 2 autonomous repair; Space Fractions reached 7/8 checks PASS (V8 smoke walkthrough repaired; V7 unit tests reached 48/49 passing).
-- Total Token Spend: $0.108 (covers all development, API probing, bug hunting, and the 4 final evaluation runs, well under the $1.00 limit).
+- Pass/Fail Status: Space Fractions: 5 runs passed (after autonomous repair). Smart To-Do List: 1 CLI run passed, 1 GUI Sandbox run failed.
+- Total Spend: ~$0.26 USD (¥1.91 CNY verified directly on the DeepSeek Dashboard, covering all development, probing, and evaluation runs—well under the $1.00 limit).
 - Raw logs and evaluation tables are available in the repository at `examples/runs/results.md`.
 
 Links:

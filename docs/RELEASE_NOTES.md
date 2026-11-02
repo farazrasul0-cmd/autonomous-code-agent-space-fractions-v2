@@ -8,8 +8,8 @@ Official standalone binary release of the DeepSeek Code Agent for Task 1 evaluat
 
 | Artifact | Distribution Type | SHA256 Checksum | Description |
 |:---|:---:|:---:|:---|
-| **`CodeAgent_onedir.zip`** | **Primary (Recommended)** | `DCCC0071EFC1ECBE7AFCCF7F0AF22136F00A478B99831AEA095A25D0EEB76F52` | Complete unpacked folder bundle (`CodeAgent.exe` + `_internal/` runtime). Fastest startup, fully compatible with Windows Sandbox. |
-| **`CodeAgentOneFile.exe`** | Secondary (Single-file) | `4E0F117FC3DEC1040F3F785C67959B20061C340BA48A9FBCDBD5BF36E8FCF1C8` | Standalone portable executable unpacking dynamically into `%TEMP%`. |
+| **`CodeAgent_onedir.zip`** | **Primary (Recommended)** | `15D24074516EA9BA3CE5004DA6B242F0935781BCDF69CEFDEB1CEBFD7FB698AA` | Complete unpacked folder bundle (`CodeAgent.exe` + `_internal/` runtime). Fastest startup, fully compatible with Windows Sandbox. |
+| **`CodeAgentOneFile.exe`** | Secondary (Single-file) | `F8E899EB3A1D02970FEF6965393FCE36980F44D257BE12816ED7BF0A90C1B171` | Standalone portable executable unpacking dynamically into `%TEMP%`. |
 | **`CodeAgent.exe`** (internal) | Binary Executable | `E54437D3A49FB0CAC3E4598EC29BB4E3E531EBC4C61224A2B82266782672820F` | Unpacked executable entrypoint within the onedir bundle. |
 
 ---
@@ -54,7 +54,7 @@ Official standalone binary release of the DeepSeek Code Agent for Task 1 evaluat
 5. **Generality Proven Across Diverse Architectures**:
    - Evaluated on **Space Fractions** (Gaming architecture: `Game`, `Question`, `User`, `Admin`).
    - Evaluated on **Smart To-Do List** (Productivity architecture: `Task`, `TaskManager`).
-   - Autonomous self-repair across runs under a total token spend of **$0.108** (well below the $1.00 budget ceiling).
+   - Autonomous self-repair across runs under an authoritative total spend of **~$0.26 USD / ¥1.91 CNY** (well below the $1.00 budget ceiling).
 
 ---
 
