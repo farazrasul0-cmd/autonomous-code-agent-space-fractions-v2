@@ -72,7 +72,7 @@ def get_current_cumulative_spend(base_runs_dir: str | Path = "examples/runs") ->
 def launch_game(main_path: str | Path) -> subprocess.Popen:
     """Launch generated desktop application in a detached, independent process.
     
-    Adheres strictly to Master Plan detached execution rules:
+    Adheres strictly to detached execution rules:
       - Frozen (PyInstaller/exe): [sys.executable, '--run-script', str(main_path)]
       - Source execution: [sys.executable, str(main_path)]
       - Creation flags: CREATE_NEW_PROCESS_GROUP on Windows

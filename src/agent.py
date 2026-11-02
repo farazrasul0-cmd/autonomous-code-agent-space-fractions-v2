@@ -1273,7 +1273,7 @@ python -m unittest discover -s tests -v
 
 
 def implement_project(client, contract: dict, spec: dict, run_dir: str | Path) -> dict:
-    """Execute complete Phase 6 implementation pipeline conforming to Master Plan v3."""
+    """Execute complete implementation pipeline conforming to the contract."""
     run_dir = Path(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
     log_file = run_dir / "run_log.jsonl"
@@ -1667,7 +1667,7 @@ def generate_run_report(
     elapsed_seconds: float,
     model_id: str = "deepseek-v4-pro"
 ) -> str:
-    """Generate comprehensive run_report.md conforming to Master Plan v3 Section 5.10."""
+    """Generate comprehensive run_report.md."""
     run_dir = Path(run_dir)
     check_names = {
         "V1": "File Presence",

@@ -19,7 +19,7 @@
   > "Following the principles of the open-source Claude-Code architecture, the agent adapts core agentic patterns to a deterministic desktop pipeline:
   > - **Agent Tool Interface**: Implements `read_file`, `write_file`, `list_dir`, and `run_checks` with strict sandbox path containment.
   > - **Observation Reinjection**: Diagnostic AST and runtime failures are reinjected into the model context to drive an autonomous repair loop.
-  > - **Context Management via AST Signature Ledger**: Only signatures of previously generated files are passed forward, minimizing prompt tokens by ~70% and preventing context window bloat.
+  > - **Context Management via AST Signature Ledger**: Only signatures of previously generated files are passed forward, reducing prompt token consumption and preventing context window bloat.
   > - **Multi-Stage Verification (V1–V8)**: Eight layered checks catch compilation, cross-file API mismatches, Tkinter method collisions, unapproved dependencies, unit test errors, and UI screen walkthrough regressions."
 
 ### 1:00 – 2:30: Live Demonstration (Autonomous Synthesis Pipeline)
