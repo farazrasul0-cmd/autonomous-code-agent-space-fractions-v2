@@ -1,0 +1,435 @@
+{
+  "files": [
+    {
+      "path": "models.py",
+      "purpose": "Core domain models: Game, Question, User, Admin",
+      "order": 1,
+      "imports": []
+    },
+    {
+      "path": "services.py",
+      "purpose": "Business logic and use case implementations",
+      "order": 2,
+      "imports": [
+        "models"
+      ]
+    },
+    {
+      "path": "ui.py",
+      "purpose": "Tkinter user interface",
+      "order": 3,
+      "imports": [
+        "models",
+        "services"
+      ]
+    },
+    {
+      "path": "main.py",
+      "purpose": "Application entry point",
+      "order": 4,
+      "imports": [
+        "ui"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "Game",
+      "file": "models.py",
+      "base": null,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "string",
+          "visibility": "private"
+        },
+        {
+          "name": "score",
+          "type": "int",
+          "visibility": "private"
+        }
+      ],
+      "properties": [],
+      "methods": [
+        {
+          "name": "play",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "viewScore",
+          "params": [
+            "self"
+          ],
+          "returns": "int",
+          "kind": "method"
+        }
+      ]
+    },
+    {
+      "name": "Question",
+      "file": "models.py",
+      "base": null,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "string",
+          "visibility": "private"
+        },
+        {
+          "name": "prompt",
+          "type": "string",
+          "visibility": "private"
+        },
+        {
+          "name": "options",
+          "type": "List<string>",
+          "visibility": "private"
+        }
+      ],
+      "properties": [],
+      "methods": [
+        {
+          "name": "getPrompt",
+          "params": [
+            "self"
+          ],
+          "returns": "string",
+          "kind": "method"
+        },
+        {
+          "name": "getOptions",
+          "params": [
+            "self"
+          ],
+          "returns": "List<string>",
+          "kind": "method"
+        }
+      ]
+    },
+    {
+      "name": "User",
+      "file": "models.py",
+      "base": null,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "string",
+          "visibility": "private"
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "visibility": "private"
+        }
+      ],
+      "properties": [],
+      "methods": [
+        {
+          "name": "playGame",
+          "params": [
+            "self",
+            "game: Game"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "viewScore",
+          "params": [
+            "self",
+            "game: Game"
+          ],
+          "returns": "int",
+          "kind": "method"
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "file": "models.py",
+      "base": null,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "string",
+          "visibility": "private"
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "visibility": "private"
+        }
+      ],
+      "properties": [],
+      "methods": [
+        {
+          "name": "updateQuestions",
+          "params": [
+            "self",
+            "questions: List<Question>"
+          ],
+          "returns": "None",
+          "kind": "method"
+        }
+      ]
+    }
+  ],
+  "entrypoints": [
+    {
+      "name": "launch",
+      "signature": "launch() -> None",
+      "purpose": "Start the Tkinter application"
+    },
+    {
+      "name": "play_game",
+      "signature": "play_game(user: User, game: Game) -> None",
+      "purpose": "Use case: Play Game"
+    },
+    {
+      "name": "view_score",
+      "signature": "view_score(user: User, game: Game) -> int",
+      "purpose": "Use case: View Score"
+    },
+    {
+      "name": "update_questions",
+      "signature": "update_questions(admin: Admin, questions: List<Question>) -> None",
+      "purpose": "Use case: Update Questions"
+    },
+    {
+      "name": "view_help",
+      "signature": "view_help() -> None",
+      "purpose": "Use case: View Help"
+    }
+  ],
+  "smoke_steps": [
+    {
+      "call": "launch",
+      "args": [],
+      "purpose": "Smoke test application launch"
+    },
+    {
+      "call": "play_game",
+      "args": [
+        "user",
+        "game"
+      ],
+      "purpose": "Smoke test Play Game use case"
+    },
+    {
+      "call": "view_score",
+      "args": [
+        "user",
+        "game"
+      ],
+      "purpose": "Smoke test View Score use case"
+    },
+    {
+      "call": "update_questions",
+      "args": [
+        "admin",
+        "questions"
+      ],
+      "purpose": "Smoke test admin update questions flow"
+    },
+    {
+      "call": "view_help",
+      "args": [],
+      "purpose": "Smoke test View Help use case"
+    }
+  ],
+  "traceability": [
+    {
+      "diagram_element": "ClassDiagram.Game",
+      "code_symbol": "Game"
+    },
+    {
+      "diagram_element": "ClassDiagram.Question",
+      "code_symbol": "Question"
+    },
+    {
+      "diagram_element": "ClassDiagram.User",
+      "code_symbol": "User"
+    },
+    {
+      "diagram_element": "ClassDiagram.Admin",
+      "code_symbol": "Admin"
+    },
+    {
+      "diagram_element": "UseCaseDiagram.Play Game",
+      "code_symbol": "play_game"
+    },
+    {
+      "diagram_element": "UseCaseDiagram.View Score",
+      "code_symbol": "view_score"
+    },
+    {
+      "diagram_element": "UseCaseDiagram.Update Questions",
+      "code_symbol": "update_questions"
+    },
+    {
+      "diagram_element": "UseCaseDiagram.View Help",
+      "code_symbol": "view_help"
+    }
+  ],
+  "forbidden_names": [
+    "after",
+    "after_cancel",
+    "after_idle",
+    "anchor",
+    "bbox",
+    "bell",
+    "bind",
+    "bind_all",
+    "bind_class",
+    "bindtags",
+    "cget",
+    "clipboard_append",
+    "clipboard_clear",
+    "clipboard_get",
+    "columnconfigure",
+    "config",
+    "configure",
+    "deletecommand",
+    "destroy",
+    "event_add",
+    "event_delete",
+    "event_generate",
+    "event_info",
+    "focus",
+    "focus_displayof",
+    "focus_force",
+    "focus_get",
+    "focus_lastfor",
+    "focus_set",
+    "forget",
+    "getboolean",
+    "getdouble",
+    "getint",
+    "getvar",
+    "grab_current",
+    "grab_release",
+    "grab_set",
+    "grab_set_global",
+    "grab_status",
+    "grid",
+    "grid_anchor",
+    "grid_bbox",
+    "grid_columnconfigure",
+    "grid_configure",
+    "grid_forget",
+    "grid_info",
+    "grid_location",
+    "grid_propagate",
+    "grid_remove",
+    "grid_rowconfigure",
+    "grid_size",
+    "grid_slaves",
+    "image_names",
+    "image_types",
+    "info",
+    "info_patchlevel",
+    "keys",
+    "lift",
+    "location",
+    "lower",
+    "mainloop",
+    "nametowidget",
+    "option_add",
+    "option_clear",
+    "option_get",
+    "option_readfile",
+    "pack",
+    "pack_configure",
+    "pack_forget",
+    "pack_info",
+    "pack_propagate",
+    "pack_slaves",
+    "place",
+    "place_configure",
+    "place_forget",
+    "place_info",
+    "place_slaves",
+    "propagate",
+    "quit",
+    "register",
+    "rowconfigure",
+    "selection_clear",
+    "selection_get",
+    "selection_handle",
+    "selection_own",
+    "selection_own_get",
+    "send",
+    "setvar",
+    "size",
+    "slaves",
+    "tk_bisque",
+    "tk_focusFollowsMouse",
+    "tk_focusNext",
+    "tk_focusPrev",
+    "tk_setPalette",
+    "tk_strictMotif",
+    "tkraise",
+    "unbind",
+    "unbind_all",
+    "unbind_class",
+    "update",
+    "update_idletasks",
+    "wait_variable",
+    "wait_visibility",
+    "wait_window",
+    "waitvar",
+    "winfo_atom",
+    "winfo_atomname",
+    "winfo_cells",
+    "winfo_children",
+    "winfo_class",
+    "winfo_colormapfull",
+    "winfo_containing",
+    "winfo_depth",
+    "winfo_exists",
+    "winfo_fpixels",
+    "winfo_geometry",
+    "winfo_height",
+    "winfo_id",
+    "winfo_interps",
+    "winfo_ismapped",
+    "winfo_manager",
+    "winfo_name",
+    "winfo_parent",
+    "winfo_pathname",
+    "winfo_pixels",
+    "winfo_pointerx",
+    "winfo_pointerxy",
+    "winfo_pointery",
+    "winfo_reqheight",
+    "winfo_reqwidth",
+    "winfo_rgb",
+    "winfo_rootx",
+    "winfo_rooty",
+    "winfo_screen",
+    "winfo_screencells",
+    "winfo_screendepth",
+    "winfo_screenheight",
+    "winfo_screenmmheight",
+    "winfo_screenmmwidth",
+    "winfo_screenvisual",
+    "winfo_screenwidth",
+    "winfo_server",
+    "winfo_toplevel",
+    "winfo_viewable",
+    "winfo_visual",
+    "winfo_visualid",
+    "winfo_visualsavailable",
+    "winfo_vrootheight",
+    "winfo_vrootwidth",
+    "winfo_vrootx",
+    "winfo_vrooty",
+    "winfo_width",
+    "winfo_x",
+    "winfo_y"
+  ]
+}

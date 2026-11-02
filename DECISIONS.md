@@ -4,6 +4,24 @@ This document records the locked architectural and technical decisions, API prob
 
 ---
 
+## Reporting Protocol
+
+Every phase report from now on must follow this canonical format exactly:
+
+```markdown
+## PHASE N REPORT — [Name]
+### A. Gate evidence table (| item | evidence | status |)
+### B. Test output (verbatim `Ran N tests ... OK` block)
+### C. Live API usage table (call | purpose | prompt tks | completion tks | cost | cumulative)
+### D. git diff --stat output
+### E. Commit (hash, message, pushed yes/no)
+### F. DECISIONS.md additions (bullets)
+### G. Open concerns / watch items
+### H. Next phase readiness (blockers resolved / remaining)
+```
+
+---
+
 ## 1. Model Identification & API Behavior
 
 - **Model ID**: `deepseek-v4-pro` (Official DeepSeek API endpoint: `https://api.deepseek.com/chat/completions`)
@@ -121,3 +139,9 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
 - **Model Usage Policy**: `deepseek-flash` is available on the official models list but will NOT be used without supervisor approval.
 - **Budget Estimate Heuristic**: Budget estimate uses chars/3 heuristic + max_tokens * output price. This is conservative (assumes all miss, no cache hits).
 - **Keyword-Based Conflict Detection**: Conflicts detection is keyword-based; a second-input doc mentioning 'Dockerfile' as an optional artifact will NOT trigger the cloud-conflict entry. Keywords are explicitly narrowed to `web-based`, `microservices`, `kubernetes`, `redis`, `rabbitmq`, `docker-compose`, and `docker container`.
+
+---
+
+## 8. Known Risks
+
+- **Conservative Estimate Heuristic**: Estimate heuristic in llm.py is conservative (chars/3 prompt + max_tokens × output price). May block calls at ~50% actual spend. Fix (soft estimate with hard spent guard, OR max_tokens × 0.6 calibrated estimate) MUST be applied before Phase 8. Will be verified against actual usage from Phase 5 live calls.
