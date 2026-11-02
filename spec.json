@@ -1,0 +1,259 @@
+{
+ "system_name": "Space Fractions",
+ "diagram_count": 13,
+ "requirements": [
+  {
+   "id": "ASR-1",
+   "type": "ASR",
+   "description": "Data durability"
+  },
+  {
+   "id": "ASR-2",
+   "type": "ASR",
+   "description": "security"
+  },
+  {
+   "id": "FR-1",
+   "type": "FR",
+   "description": "Play game"
+  },
+  {
+   "id": "NFR-1",
+   "type": "NFR",
+   "description": "Performance"
+  }
+ ],
+ "conflicts": {
+  "prescribed_stack": "Web microservices (Node.js, Express, PostgreSQL, Redis, RabbitMQ, Docker, Kubernetes).",
+  "assignment_requirement": "Standalone local Windows desktop application (.exe) using Python and Tkinter.",
+  "resolution": "desktop requirement wins; cloud/container/microservice infrastructure is out of scope."
+ },
+ "warnings": [
+  "Empty test matrix: Testing strategy table lists test types with empty component columns.",
+  "Mismatched artifact filenames: Traceability mentions 'question_ddl.sql' while deliverables specify 'game_ddl.sql'.",
+  "Duplicated OpenAPI specification blocks found (2 copies in Architecture_Documentation).",
+  "Duplicated Kubernetes Deployment blocks found (2 copies in Architecture_Documentation)."
+ ],
+ "executive_summary": "The Space Fractions system is a web-based, interactive learning tool designed to improve fraction-solving skills for sixth-grade students. The system consists of an introductory movie, a main menu, a series of fraction questions, and an ending scene",
+ "diagrams": {
+  "UseCaseDiagram": {
+   "kind": "usecase",
+   "actors": [
+    "End User",
+    "Admin"
+   ],
+   "usecases": [
+    "Play Game",
+    "View Score",
+    "Update Questions",
+    "View Help"
+   ],
+   "links": [
+    "EndUser -- PlayGame",
+    "EndUser -- ViewScore",
+    "EndUser -- ViewHelp",
+    "Admin -- UpdateQuestions"
+   ]
+  },
+  "ClassDiagram": {
+   "kind": "class",
+   "classes": [
+    {
+     "name": "Game",
+     "base_class": null,
+     "attributes": [
+      "- id: string",
+      "- score: int"
+     ],
+     "methods": [
+      "+ play(): void",
+      "+ viewScore(): int"
+     ]
+    },
+    {
+     "name": "Question",
+     "base_class": null,
+     "attributes": [
+      "- id: string",
+      "- prompt: string",
+      "- options: List<string>"
+     ],
+     "methods": [
+      "+ getPrompt(): string",
+      "+ getOptions(): List<string>"
+     ]
+    },
+    {
+     "name": "User",
+     "base_class": null,
+     "attributes": [
+      "- id: string",
+      "- username: string"
+     ],
+     "methods": [
+      "+ playGame(game: Game): void",
+      "+ viewScore(game: Game): int"
+     ]
+    },
+    {
+     "name": "Admin",
+     "base_class": null,
+     "attributes": [
+      "- id: string",
+      "- username: string"
+     ],
+     "methods": [
+      "+ updateQuestions(questions: List<Question>): void"
+     ]
+    }
+   ],
+   "relations": [
+    "Game --* Question",
+    "User --* Game",
+    "Admin --* Question"
+   ]
+  },
+  "ObjectDiagram": {
+   "kind": "object",
+   "elements": [
+    "game1",
+    "question1",
+    "user1",
+    "admin1"
+   ],
+   "links": [
+    "game1 -- question1",
+    "user1 -- game1",
+    "admin1 -- question1"
+   ]
+  },
+  "StateDiagram": {
+   "kind": "state",
+   "states": [
+    "Playing",
+    "Paused",
+    "GameOver"
+   ],
+   "initial": "Playing",
+   "transitions": [
+    "[*] -> Playing",
+    "Playing -> Paused : pause()",
+    "Paused -> Playing : resume()",
+    "Playing -> GameOver : gameOver()"
+   ]
+  },
+  "ActivityDiagram": {
+   "kind": "activity",
+   "elements": [],
+   "links": []
+  },
+  "SequenceDiagram1": {
+   "kind": "sequence",
+   "participants": [
+    "User",
+    "Game",
+    "Question"
+   ],
+   "messages": [
+    "User -> Game: play()",
+    "Game -> Question: getPrompt()",
+    "Question -> Game: return prompt",
+    "Game -> User: display prompt",
+    "User -> Game: submit answer",
+    "Game -> Question: check answer",
+    "Question -> Game: return result",
+    "Game -> User: display result"
+   ]
+  },
+  "SequenceDiagram2": {
+   "kind": "sequence",
+   "participants": [
+    "Admin",
+    "Question"
+   ],
+   "messages": [
+    "Admin -> Question: update()",
+    "Question -> Admin: return success"
+   ]
+  },
+  "CollaborationDiagram1": {
+   "kind": "sequence",
+   "participants": [
+    "User",
+    "Game",
+    "Question"
+   ],
+   "messages": [
+    "User -> Game: play()",
+    "Game -> Question: getPrompt()",
+    "Question -> Game: return prompt",
+    "Game -> User: display prompt",
+    "User -> Game: submit answer",
+    "Game -> Question: check answer",
+    "Question -> Game: return result",
+    "Game -> User: display result"
+   ]
+  },
+  "CollaborationDiagram2": {
+   "kind": "sequence",
+   "participants": [
+    "Admin",
+    "Question"
+   ],
+   "messages": [
+    "Admin -> Question: update()",
+    "Question -> Admin: return success"
+   ]
+  },
+  "PackageDiagram": {
+   "kind": "class",
+   "classes": [],
+   "relations": [
+    "Game -- User",
+    "Game -- Admin"
+   ]
+  },
+  "ComponentDiagram": {
+   "kind": "component",
+   "elements": [
+    "GameComponent",
+    "QuestionComponent",
+    "UserComponent",
+    "AdminComponent"
+   ],
+   "links": [
+    "GameComponent -- QuestionComponent",
+    "GameComponent -- UserComponent",
+    "GameComponent -- AdminComponent"
+   ]
+  },
+  "DeploymentDiagram": {
+   "kind": "deployment",
+   "elements": [
+    "GameServer",
+    "QuestionServer",
+    "UserClient",
+    "AdminClient"
+   ],
+   "links": [
+    "GameServer -- QuestionServer",
+    "GameServer -- UserClient",
+    "GameServer -- AdminClient"
+   ]
+  },
+  "ContainerDiagram": {
+   "kind": "container",
+   "elements": [
+    "GameContainer",
+    "QuestionContainer",
+    "UserContainer",
+    "AdminContainer"
+   ],
+   "links": [
+    "GameContainer -- QuestionContainer",
+    "GameContainer -- UserContainer",
+    "GameContainer -- AdminContainer"
+   ]
+  }
+ }
+}
