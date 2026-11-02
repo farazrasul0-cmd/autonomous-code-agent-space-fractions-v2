@@ -251,6 +251,127 @@
           "kind": "method"
         }
       ]
+    },
+    {
+      "name": "App",
+      "file": "app.py",
+      "base": null,
+      "attributes": [
+        {
+          "name": "root",
+          "type": "tk.Tk",
+          "visibility": "private"
+        },
+        {
+          "name": "current_user",
+          "type": "User",
+          "visibility": "private"
+        },
+        {
+          "name": "current_game",
+          "type": "Game",
+          "visibility": "private"
+        },
+        {
+          "name": "questions",
+          "type": "List[Question]",
+          "visibility": "private"
+        }
+      ],
+      "properties": [],
+      "methods": [
+        {
+          "name": "__init__",
+          "params": [
+            "self",
+            "root"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "show_menu",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "show_play_game",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "show_view_score",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "show_update_questions",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "show_help",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "start_play_game",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "submit_answer",
+          "params": [
+            "self",
+            "answer_index"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "toggle_pause",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "end_game",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "update_questions",
+          "params": [
+            "self",
+            "questions"
+          ],
+          "returns": "None",
+          "kind": "method"
+        }
+      ]
     }
   ],
   "entrypoints": [
