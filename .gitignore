@@ -1,7 +1,9 @@
 .venv/
 venv/
 build/
-dist/
+dist/*
+!dist/RELEASE_NOTES.md
+!dist/CodeAgent_onedir.zip
 *.spec
 .cache/
 __pycache__/
