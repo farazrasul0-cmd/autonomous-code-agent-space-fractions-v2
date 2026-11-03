@@ -3,7 +3,7 @@
 ## 1. Executive Summary & Policy Note
 
 ### Budget Note
-> **I chose the conservative interpretation: $1.00 total for the evaluation. Therefore 3+1 runs were executed.**
+> **I did not get clarification on whether the $1 limit is per run or for the whole evaluation, so I assumed the stricter reading ($1.00 total for the evaluation). Therefore 3+1 runs were executed.**
 
 All evaluation runs were executed with hard cost tracking enabled against the `$0.85` cumulative cap. Evaluation results vary by input: Space Fractions: 5 runs passed (after autonomous repair). Smart To-Do List: 1 CLI run passed, 1 GUI Sandbox run failed.
 
@@ -101,7 +101,7 @@ The release binaries compiled from Python 3.12 standard library with full hidden
 Test execution verification via `python -m unittest discover tests`:
 
 ```text
-Ran 70 tests in 9.568s
+Ran 71 tests in 13.677s
 
 OK
 ```

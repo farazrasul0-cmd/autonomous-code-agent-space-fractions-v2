@@ -103,7 +103,7 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
 - **Per-Run Cap**: **\$0.15** maximum per generation/evaluation run.
 - **Cumulative Cap**: **\$0.85** hard stopping threshold across all evaluation runs combined, leaving a \$0.15 safety buffer.
 - **Enforcement**: Dual guards inside `src/llm.py` block any outbound request if either the per-run cost exceeds \$0.15 or the cumulative total evaluation spend exceeds \$0.85.
-- **Budget Interpretation**: I chose the conservative interpretation: $1.00 total for the evaluation.
+- **Budget Interpretation**: I did not get clarification on whether the $1 limit is per run or for the whole evaluation, so I assumed the stricter reading ($1.00 total for the evaluation).
 - **Environment & Key Protection**: No API keys appear in repository files, commit history, logs, or replay cache. `.env`, `.venv`, and `scratch/` are strictly gitignored.
 
 ---
@@ -128,7 +128,7 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
 
 - **Conservative Estimate Heuristic**: Estimate heuristic in llm.py is conservative (chars/3 prompt + max_tokens × output price). May block calls at ~50% actual spend. Fix (soft estimate with hard spent guard, OR max_tokens × 0.6 calibrated estimate) MUST be applied before Phase 8. Will be verified against actual usage from Phase 5 live calls.
 - **Measured Estimate Ratio & Soft Guard Update**: Measured estimate ratio from Phase 5 live contract call: 5.15x (est $0.017195 vs actual $0.003336). Phase 5 fix applied: Budget.check() now blocks only on actual spent >= cap, not on estimated cost. Estimate retained for logging and diagnostics.
-- **Source Line Count**: The agent is 4,079 lines to support rigorous AST verification (V1-V8), while the generated output remains a lean ~500 lines across 6 files. 70 tests pass.
+- **Source Line Count**: The agent is 4,109 lines to support rigorous AST verification (V1-V8), while the generated output remains a lean ~500 lines across 6 files. 71 tests pass.
 - **Source of Truth for Cost**: Per-call usage and cost must be read from examples/runs/<run_id>/run_log.jsonl, not from markdown report tables. Where a report table disagrees with the log, the log wins.
 
 ---
@@ -187,7 +187,7 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
   - Strict log sanitization stripping API key tokens before rendering in scrolled log.
   - Live budget meters tracking run spend against \$0.15 cap and cumulative spend against \$0.85 cap.
 - **Detached Execution Standard**: Implemented `launch_game(main_path)` using `subprocess.Popen` with `CREATE_NEW_PROCESS_GROUP` on Windows and `DEVNULL` streams with `close_fds=True`, decoupling child game lifecycle from parent GUI. Supports frozen executable (`--run-script`) and source execution.
-- **Verification & Test Coverage**: 70 unit tests passing covering AST `AnnAssign` handling, in-process unit test execution with 8.3 short temp paths, failure tracebacks, GUI initialization, queue-based stage updates, detached process spawning, and log sanitization.
+- **Verification & Test Coverage**: 71 unit tests passing covering AST `AnnAssign` handling, in-process unit test execution with 8.3 short temp paths, failure tracebacks, GUI initialization, queue-based stage updates, detached process spawning, and log sanitization.
 
 ---
 
@@ -200,7 +200,7 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
   - `generate_test_file()` dynamically synthesizes unit tests importing classes declared in `contract.json`.
 - **3+1 Multi-Run Evaluation Suite**:
   - Executed 3 Space Fractions evaluation runs (`eval_sf_1`, `eval_sf_2`, `eval_sf_3`) and 1 Smart To-Do List evaluation run (`eval_todo_1`).
-  - Budget policy: "I chose the conservative interpretation: $1.00 total for the evaluation. Therefore 3+1 runs were executed."
+  - Budget policy: "I did not get clarification on whether the $1 limit is per run or for the whole evaluation, so I assumed the stricter reading. Therefore 3+1 runs were executed."
 - **Live Autonomous Repair Evidence**:
   - `eval_sf_1`: V8 (Tkinter style error) repaired in Round 3 via autonomous patch to `app.py`.
   - `eval_todo_1`: V7 (Unit test failure) repaired in Round 2 via autonomous patch to `models.py`, achieving a clean 8/8 PASS across all checks (V1–V8).

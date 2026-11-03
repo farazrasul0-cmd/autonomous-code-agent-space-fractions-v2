@@ -259,6 +259,44 @@ class TestAgent(unittest.TestCase):
         self.assertEqual(len(result["rounds"]), 1, "Should succeed in exactly 1 round")
         self.assertIn("models.py", result["rounds"][0]["files_changed"])
 
+    def test_generate_run_report_verdict_verification_incomplete(self):
+        """Verify generate_run_report sets verdict to VERIFICATION INCOMPLETE on dynamic timeouts."""
+        from src.agent import generate_run_report
+        contract = {
+            "files": [{"order": 1, "path": "models.py", "purpose": "Domain models"}],
+            "classes": [{"name": "Counter"}]
+        }
+        spec = {"system_name": "Counter App"}
+        initial_verif = {
+            "all_passed": False,
+            "checks": {
+                "V1": [], "V2": [], "V3": [], "V4": [], "V5": [], "V6": [],
+                "V7": [{"check": "V7", "file": "tests", "message": "Unit test suite timed out after 60 seconds"}],
+                "V8": []
+            },
+            "errors": [{"check": "V7", "file": "tests", "message": "Unit test suite timed out after 60 seconds"}]
+        }
+        final_verif = dict(initial_verif)
+
+        report = generate_run_report(
+            run_dir=self.temp_dir,
+            contract=contract,
+            spec=spec,
+            initial_verif=initial_verif,
+            final_verif=final_verif,
+            repair_rounds=[],
+            total_cost=0.01,
+            cumulative_spend=0.02,
+            start_time="2026-11-03 20:00:00",
+            end_time="2026-11-03 20:01:00",
+            elapsed_seconds=60.0
+        )
+
+        self.assertIn("- **Final Verdict**: **VERIFICATION INCOMPLETE**", report)
+        self.assertIn("### Verdict: VERIFICATION INCOMPLETE", report)
+        self.assertNotIn("Verdict: FAILED", report)
+        self.assertNotIn("Verdict: PASSED", report)
+
 
 if __name__ == "__main__":
     unittest.main()

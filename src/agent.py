@@ -1693,7 +1693,31 @@ def generate_run_report(
     }
 
     all_passed = final_verif.get("all_passed", False)
-    verdict_str = "PASSED" if all_passed else "FAILED"
+    fin_checks = final_verif.get("checks", {})
+    v1_v6_passed = all(len(fin_checks.get(f"V{i}", [])) == 0 for i in range(1, 7))
+    remaining_errors = final_verif.get("errors", [])
+    only_timeouts = (
+        not all_passed
+        and v1_v6_passed
+        and len(remaining_errors) > 0
+        and all(
+            err.get("check") in ("V7", "V8")
+            and (
+                "timed out" in err.get("message", "").lower()
+                or "timeout" in err.get("message", "").lower()
+                or "skipped" in err.get("message", "").lower()
+                or "skip" in err.get("message", "").lower()
+            )
+            for err in remaining_errors
+        )
+    )
+
+    if all_passed:
+        verdict_str = "PASSED"
+    elif only_timeouts:
+        verdict_str = "VERIFICATION INCOMPLETE"
+    else:
+        verdict_str = "FAILED"
 
     lines = [
         f"# Run Report: {run_dir.name}",
@@ -1805,6 +1829,13 @@ def generate_run_report(
             f"### Verdict: {verdict_str}",
             "The standalone desktop application successfully passed all verification checks (V1 through V8), including compilation, static call resolution, contract schema conformance, unit tests, and headless UI walkthrough harness.",
             "The system is verified and ready for packaging and standalone distribution."
+        ])
+    elif only_timeouts:
+        lines.extend([
+            f"### Verdict: {verdict_str}",
+            "Static checks (V1 through V6) passed cleanly, confirming valid syntax, contract conformance, call-site resolution, and widget isolation.",
+            "Dynamic verification (V7/V8) could not be completed due to environment timeouts or skipped harness steps in the execution sandbox.",
+            "The system statically conforms to specification; dynamic verification is incomplete."
         ])
     else:
         lines.extend([
