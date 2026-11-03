@@ -13,3 +13,4 @@ scratch/
 update_plan.py
 ~$*
 *.tmp
+*.log
