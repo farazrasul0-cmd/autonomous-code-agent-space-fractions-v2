@@ -128,7 +128,7 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
 
 - **Conservative Estimate Heuristic**: Estimate heuristic in llm.py is conservative (chars/3 prompt + max_tokens × output price). May block calls at ~50% actual spend. Fix (soft estimate with hard spent guard, OR max_tokens × 0.6 calibrated estimate) MUST be applied before Phase 8. Will be verified against actual usage from Phase 5 live calls.
 - **Measured Estimate Ratio & Soft Guard Update**: Measured estimate ratio from Phase 5 live contract call: 5.15x (est $0.017195 vs actual $0.003336). Phase 5 fix applied: Budget.check() now blocks only on actual spent >= cap, not on estimated cost. Estimate retained for logging and diagnostics.
-- **Source Line Count**: The agent is 4,138 lines to support rigorous AST verification (V1-V8), while the generated output remains a lean ~500 lines across 6 files. 71 tests pass.
+- **Source Line Count**: The agent is 4,150 lines to support rigorous AST verification (V1-V8), while the generated output remains a lean ~500 lines across 6 files. 71 tests pass.
 - **Source of Truth for Cost**: Per-call usage and cost must be read from examples/runs/<run_id>/run_log.jsonl, not from markdown report tables. Where a report table disagrees with the log, the log wins.
 
 ---
@@ -209,6 +209,13 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
 - **Strict TLS by Default & Opt-In Bypass**: Python's standard `urllib` strictly validates TLS certificates against the system CA store. In isolated environments like Windows Sandbox where root CA certificates may be missing, certificate verification fails with `[SSL: CERTIFICATE_VERIFY_FAILED]`. Implicit bypass of TLS was rejected as an insecure default. Instead, strict TLS verification is enforced by default (`allow_unverified_tls=False`), and an explicit GUI checkbox (`Allow unverified TLS (Not recommended)`) allows users in test sandboxes to opt in. When enabled, a visible warning is logged: "WARNING: Bypassing TLS verification. Your API key may be intercepted." When disabled, the agent guides the user to open Edge in the Sandbox to acquire root certificates.
 - **Read-Only / Sandboxed Environment Cache Storage**: In restricted or read-only environments (such as Windows Sandbox shared folder mounts), creating `.cache` in the current working directory raises `[WinError 5] Access is denied`. `src/app.py` and `src/agent.py` store the LLM request cache in the user temporary directory (`Path(tempfile.gettempdir()) / "CodeAgent_cache"`), and `Cache.put` in `src/llm.py` gracefully catches `OSError` to ensure cache writing never blocks pipeline execution.
 - **Parser Spec Convenience Mappings**: `src/parser.py` maps `classes`, `use_cases`, and `states` to the top level of `spec` in addition to nested `spec["diagrams"]`, enabling GUI front-end logging and agent stages to access domain artifacts cleanly regardless of diagram nesting.
+
+---
+
+## 15. Deterministic Post-Processing
+
+To ensure robust generation, src/agent.py applies deterministic string replacements to the LLM's output before writing files. Specifically, it strips hallucinated __future__ imports and corrects Application to App. This is a programmatic safeguard, not hand-editing of the final output.
+
 
 
 

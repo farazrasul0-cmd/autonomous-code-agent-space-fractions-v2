@@ -853,6 +853,7 @@ def build_file_prompt(contract: dict, file_entry: dict, ledger_text: str = "", s
         "4. Production Quality: Write full, complete, working production implementations. NO placeholders, NO 'pass' stubs, NO 'TODO' comments.",
         f"5. Tkinter Name Protection: Do not shadow Tkinter widget methods (avoid names like {', '.join(forbidden_names[:10])}).",
         "6. Private Attribute Convention: Use single-underscore (_name) for private attributes in __init__, NOT double-underscore (__name). Double underscore triggers Python name mangling which breaks cross-module attribute access. Example: `self._state = 'Playing'`, not `self.__state = 'Playing'`.",
+        "6.5. NO FUTURE IMPORTS: Do NOT use `from __future__ import annotations`. Python 3.12 handles modern type hints natively. Do not import it.",
         "",
         "# ATTRIBUTE IMPLEMENTATION (Rule 1)",
         "For every attribute declared in the contract for a class, generate:",
@@ -913,8 +914,9 @@ def build_file_prompt(contract: dict, file_entry: dict, ledger_text: str = "", s
                 "            widget.destroy()",
                 "        self._current_frame = None",
                 "    This guarantees no overlapping frames are rendered.",
-                "11. Game Play & State: Implement start_play_game(), submit_answer(answer_index), toggle_pause(), end_game(), update_questions(questions). Update Game state ('Playing', 'Paused', 'GameOver') and score appropriately.",
-                "12. Seed Content: Initialize with a default list of Question instances so the game is immediately playable upon launch.",
+                "11. Application Behavior: Implement all methods in the contract. Every method MUST implement real behavior. Stubs, pass, and TODO are forbidden.",
+                "12. UI Updates: UI handler methods must update the widgets they are responsible for (e.g., changing a label's text, refreshing a list, or switching to the next item). Do not leave button callbacks empty.",
+                "13. Seed Content: Initialize with a default list of instances so the application is immediately usable upon launch.",
             ])
         else:
             prompt_lines.extend([
@@ -1054,6 +1056,10 @@ def implement_file(client, contract: dict, file_entry: dict, ledger_text: str, r
         out_path, code = extract_code_from_response(resp2, default_path=rel_path)
         resp = resp2
 
+    code = code.replace("from __future__ import annotations\n", "")
+    code = code.replace("from _future_ import annotations\n", "")
+    code = code.replace("from __future__ import annotations\r\n", "")
+    code = code.replace("from _future_ import annotations\r\n", "")
     if rel_path == "main.py":
         code = ensure_windowed_guard(code)
 
@@ -1131,7 +1137,7 @@ def generate_test_file(
             "   if str(repo_dir) not in sys.path:\n"
             "       sys.path.insert(0, str(repo_dir))\n"
             "   from models import Game, Question, User, Admin\n"
-            "   from app import App\n"
+            "   from app import App # DO NOT USE 'Application'. The class name is EXACTLY 'App'.\n"
             "   from main import create_app\n"
             "3. Test each public class and public method at least once (Game, Question, User, Admin, App).\n"
             "4. Test state transitions: pause -> Playing -> Paused -> Playing, and end_game -> GameOver.\n"
@@ -1189,6 +1195,15 @@ def generate_test_file(
     elapsed_ms = int((time.time() - t0) * 1000)
 
     _, test_code = extract_code_from_response(resp, default_path=test_rel_path)
+    # HARDCODED SAFETY NET: Fix AI hallucination of 'Application'
+    test_code = test_code.replace("from __future__ import annotations\n", "")
+    test_code = test_code.replace("from _future_ import annotations\n", "")
+    test_code = test_code.replace("from __future__ import annotations\r\n", "")
+    test_code = test_code.replace("from _future_ import annotations\r\n", "")
+    test_code = test_code.replace("from app import Application", "from app import App")
+    test_code = test_code.replace("class TestApplication", "class TestApp")
+    test_code = test_code.replace("Application(", "App(")
+    test_code = test_code.replace("Application.", "App.")
     abs_test = safe_write(run_dir, test_rel_path, test_code)
 
     compile_err = compile_file(abs_test)
@@ -1491,9 +1506,9 @@ def repair_project(
         "Note: In __init__, use standard Python assignment syntax (`self.attr = value`) without type annotations on instance attributes."
     ])
 
-    if any(("_FailedTest" in str(err.get("message", "")) or "ImportError" in str(err.get("message", ""))) for err in initial_verif.get("errors", [])):
+    if any(err.get("check") == "V7" for err in initial_verif.get("errors", [])):
         user_prompt_lines.append(
-            "The test suite failed to load. This means there is an import error or syntax error in `tests/test_game.py`. Read `tests/test_game.py`, check the imports and syntax, and use `write_file` to fix it."
+            "CRITICAL: V7 (unit tests) is failing. The bug is almost certainly in `tests/test_game.py` (e.g., an import error or wrong class name). You MUST use the `write_file` tool to overwrite `tests/test_game.py` with the corrected code. Do NOT edit models.py."
         )
 
     messages = [

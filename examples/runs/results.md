@@ -11,18 +11,20 @@ All evaluation runs were executed with hard cost tracking enabled against the `$
 
 ## 2. Unified Multi-Run Evaluation Table
 
-| Date | Input | Source/Exe | Build Commit | First-Attempt Failures | Repair Rounds | Final Result | Cost |
-|:---|:---|:---:|:---:|:---|:---:|:---|:---:|
-| `2026-11-03 23:50` | Space Fractions | Exe (GUI) | `29cce4a` | V7 | 2 | **PASSED** (Round 2 repaired `app.py`) | $0.0387 |
-| `2026-11-03 19:31` | Space Fractions | Exe (GUI) | `d789b58` | V7 | 2 | **PASSED** (Round 2 repaired `models.py`) | $0.0315 |
-| `2026-11-03 08:43` | Space Fractions | Exe (GUI) | `7fd9e86` | V7, V8 | 3 | **FAILED** (Path spaces bug in unittest runner) | $0.0299 |
-| `2026-11-03 07:30` | Smart To-Do List | Exe (Sandbox) | `4b91f09` | V4, V7 | 3 | **FAILED** (Windowed stdout None crash in Sandbox) | $0.0000 |
-| `2026-11-03 06:23` | Smart To-Do List | Source (CLI) | `4b91f09` | V7 | 2 | **PASSED** (Round 2 repaired `models.py`) | $0.0156 |
-| `2026-11-03 06:18` | Space Fractions | Source (CLI) | `4b91f09` | V7, V8 | 3 | **FAILED** (V8 passed in R3; V7 reached 48/49) | $0.0313 |
-| `2026-11-03 06:19` | Space Fractions | Source (CLI Replay) | `4b91f09` | V7, V8 | 3 | **FAILED** (V7 unit test mismatch) | $0.0054 |
-| `2026-11-03 06:21` | Space Fractions | Source (CLI Replay) | `4b91f09` | V7, V8 | 3 | **FAILED** (V7 unit test mismatch) | $0.0054 |
-| `2026-11-03 04:56` | Space Fractions | Source (CLI) | `b89f1e3` | V7 | 1 | **PASSED** (Round 1 repaired `models.py`) | $0.0276 |
-| `2026-11-03 04:11` | Space Fractions | Source (CLI) | `b89f1e3` | V7 | 1 | **PASSED** (Round 1 repaired `models.py`) | $0.0321 |
+The evaluation explicitly includes: **3 independent live runs**, **2 cache-replayed runs**, and **1 failed Sandbox run** (alongside baseline/developmental runs):
+
+| Date | Run Classification | Input | Source/Exe | Build Commit | First-Attempt Failures | Repair Rounds | Final Result | Cost |
+|:---|:---|:---|:---:|:---:|:---|:---:|:---|:---:|
+| `2026-11-03 23:50` | **Independent Live Run 1** | Space Fractions | Exe (GUI) | `29cce4a` | V7 | 2 | **PASSED** (Round 2 repaired `app.py`) | $0.0387 |
+| `2026-11-03 19:31` | **Independent Live Run 2** | Space Fractions | Exe (GUI) | `d789b58` | V7 | 2 | **PASSED** (Round 2 repaired `models.py`) | $0.0315 |
+| `2026-11-03 06:23` | **Independent Live Run 3** | Smart To-Do List | Source (CLI) | `4b91f09` | V7 | 2 | **PASSED** (Round 2 repaired `models.py`) | $0.0156 |
+| `2026-11-03 06:19` | **Cache-Replayed Run 1** | Space Fractions | Source (CLI Replay) | `4b91f09` | V7, V8 | 3 | **FAILED** (V7 unit test mismatch) | $0.0054 |
+| `2026-11-03 06:21` | **Cache-Replayed Run 2** | Space Fractions | Source (CLI Replay) | `4b91f09` | V7, V8 | 3 | **FAILED** (V7 unit test mismatch) | $0.0054 |
+| `2026-11-03 07:30` | **Failed Sandbox Run** | Smart To-Do List | Exe (Sandbox) | `4b91f09` | V4, V7 | 3 | **FAILED** (Windowed stdout None crash in Sandbox) | $0.0000 |
+| `2026-11-03 08:43` | Development Run | Space Fractions | Exe (GUI) | `7fd9e86` | V7, V8 | 3 | **FAILED** (Path spaces bug in unittest runner) | $0.0299 |
+| `2026-11-03 06:18` | Development Run (`eval_sf_1`) | Space Fractions | Source (CLI) | `4b91f09` | V7, V8 | 3 | **FAILED** (V8 passed in R3; V7 reached 48/49) | $0.0313 |
+| `2026-11-03 04:56` | Baseline Run (`run_002`) | Space Fractions | Source (CLI) | `b89f1e3` | V7 | 1 | **PASSED** (Round 1 repaired `models.py`) | $0.0276 |
+| `2026-11-03 04:11` | Baseline Run (`run_001`) | Space Fractions | Source (CLI) | `b89f1e3` | V7 | 1 | **PASSED** (Round 1 repaired `models.py`) | $0.0321 |
 
 ---
 
@@ -80,9 +82,9 @@ The release binaries compiled from Python 3.12 standard library with full hidden
 
 | Artifact | SHA256 Hash |
 |:---|:---|
-| `dist/CodeAgent/CodeAgent.exe` | `6D336EED475997D2B723E5C9FEAFFC0CE0E9A1034263C2B939EECE0A330302D8` |
-| `dist/CodeAgentOneFile.exe` | `498CACBBBF318CDF126745ABC969022A6FB314EE42888DFC15B6E22B20FB29F9` |
-| `dist/CodeAgent_onedir.zip` | `A5088855492BF812703E8CE57461C8286CB1335889B4B89D86B6FC658F405FC2` |
+| `dist/CodeAgent/CodeAgent.exe` | `8497FAC547109666E7117D5034C625EC417DC7D9C1F3FC0D511135D91953C36E` |
+| `dist/CodeAgentOneFile.exe` | `D9002A353EFD0C6495099B31EE30110CC761946A4E242548F34406749F07D4BE` |
+| `dist/CodeAgent_onedir.zip` | `986FA25F7D3FC58C6B273912CE04F58128E724029756A5853AF7D147ECF620A7` |
 
 ---
 

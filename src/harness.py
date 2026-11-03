@@ -175,10 +175,6 @@ def run_harness(run_dir: str | Path, contract: dict, timeout: int = 35) -> dict:
     """Run UI smoke walkthrough harness in an isolated subprocess with watchdog timer."""
     run_dir = Path(run_dir).resolve()
 
-    # If frozen, completely bypass subprocess to prevent PyInstaller embedded interpreter crash
-    if getattr(sys, "frozen", False):
-        return _run_harness_in_process(run_dir, contract)
-
     with tempfile.TemporaryDirectory(prefix="harness_") as tmp_dir:
         tmp_path = Path(tmp_dir)
         worker_script = tmp_path / "worker.py"
