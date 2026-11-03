@@ -603,10 +603,6 @@ def check_v7_test_execution(run_dir: str | Path, timeout: int = 60) -> list[dict
     if not tests_dir.exists() or not any(tests_dir.glob("test_*.py")):
         return [{"check": "V7", "file": "tests", "line": 0, "message": "Missing or empty tests/ directory"}]
 
-    # If frozen, completely bypass subprocess to prevent PyInstaller embedded interpreter crash
-    if getattr(sys, "frozen", False):
-        return _run_v7_in_process(run_dir, tests_dir, timeout=timeout)
-
     # Ensure tests/__init__.py exists so unittest discover can import start_dir cleanly
     init_file = tests_dir / "__init__.py"
     created_temp_init = False
@@ -635,7 +631,8 @@ def check_v7_test_execution(run_dir: str | Path, timeout: int = 60) -> list[dict
     proc_exc = None
     timed_out = False
 
-    scrubbed_env = {k: v for k, v in os.environ.items() if "DEEPSEEK" not in k and "API_KEY" not in k}
+    allowed = {"PATH", "SYSTEMROOT", "TEMP", "TMP", "WINDIR", "COMSPEC", "PATHEXT", "PYTHONPATH"}
+    scrubbed_env = {k: v for k, v in os.environ.items() if k.upper() in allowed}
 
     try:
         proc = subprocess.run(
@@ -664,35 +661,22 @@ def check_v7_test_execution(run_dir: str | Path, timeout: int = 60) -> list[dict
     if proc is not None and proc.returncode == 0:
         return []
 
-    # Check for sandbox hang, timeout, or embedded interpreter startup failure
-    stderr = (proc.stderr if proc else "") or (proc.stdout if proc else "") or str(proc_exc or "")
-    is_interpreter_or_sandbox_failure = (
-        timed_out
-        or proc_exc is not None
-        or "embedded python interpreter" in stderr.lower()
-        or "failed to execute script" in stderr.lower()
-        or (proc is not None and proc.returncode != 0 and not ("FAIL:" in stderr or "ERROR:" in stderr or "Ran " in stderr))
-    )
+    if timed_out:
+        return [{
+            "check": "V7",
+            "file": "tests",
+            "line": 0,
+            "message": f"Unit test suite timed out after {timeout} seconds"
+        }]
 
-    if is_interpreter_or_sandbox_failure:
-        in_proc_res = _run_v7_in_process(run_dir, tests_dir, timeout=25)
-        if len(in_proc_res) == 0:
-            return []
-        if timed_out and any("timed out" in err.get("message", "").lower() for err in in_proc_res):
-            return [{
-                "check": "V7",
-                "file": "tests",
-                "line": 0,
-                "message": f"Unit test suite timed out after {timeout} seconds"
-            }]
-        return in_proc_res
+    stderr = (proc.stderr if proc else "") or (proc.stdout if proc else "") or str(proc_exc or "")
 
     # Normal unit test failure from subprocess
     return [{
         "check": "V7",
         "file": "tests",
         "line": 0,
-        "message": f"Unit tests failed (exit code {proc.returncode}):\n{stderr[:4000]}"
+        "message": f"Unit tests failed (exit code {proc.returncode if proc else 'N/A'}):\n{stderr[:4000]}"
     }]
 
 

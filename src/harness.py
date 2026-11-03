@@ -100,77 +100,6 @@ if __name__ == "__main__":
 """
 
 
-def _run_harness_in_process(run_dir: str | Path, contract: dict) -> dict:
-    """Fallback: Execute UI smoke walkthrough in-process when subprocess is blocked or frozen."""
-    run_dir = Path(run_dir).resolve()
-    run_dir_str = str(run_dir)
-    sys_path_added = False
-    if run_dir_str not in sys.path:
-        sys.path.insert(0, run_dir_str)
-        sys_path_added = True
-
-    # Evict project modules from previous runs to prevent stale module caching
-    for name in ["models", "engine", "ui", "app", "main"]:
-        if name in sys.modules:
-            del sys.modules[name]
-
-    try:
-        import tkinter as tk
-        root = None
-        try:
-            if getattr(tk, "_default_root", None) is None:
-                root = tk.Tk()
-                root.withdraw()
-            else:
-                root = tk.Toplevel(tk._default_root)
-                root.withdraw()
-        except Exception as e:
-            return {"status": "skipped", "reason": "Sandbox GUI blocked / no display", "error": str(e)}
-
-        try:
-            import importlib
-            if "main" in sys.modules:
-                main_mod = importlib.reload(sys.modules["main"])
-            else:
-                main_mod = importlib.import_module("main")
-
-            if not hasattr(main_mod, "create_app"):
-                return {"status": "fail", "error": "main.py does not define create_app(root)"}
-
-            app = main_mod.create_app(root)
-            root.update()
-
-            smoke_steps = contract.get("smoke_steps", [])
-            steps_run = 0
-            for step in smoke_steps:
-                call_name = step.get("call")
-                args = step.get("args", [])
-                if call_name == "create_app":
-                    continue
-                if not hasattr(app, call_name):
-                    return {"status": "fail", "step": call_name, "error": f"App has no method '{call_name}'"}
-                method = getattr(app, call_name)
-                method(*args)
-                root.update()
-                steps_run += 1
-
-            return {"status": "pass", "steps_run": steps_run, "in_process": True}
-        finally:
-            try:
-                if root:
-                    root.destroy()
-            except Exception:
-                pass
-    except Exception as exc:
-        return {"status": "skipped", "reason": "Sandbox GUI in-process error", "error": str(exc)}
-    finally:
-        if sys_path_added and run_dir_str in sys.path:
-            try:
-                sys.path.remove(run_dir_str)
-            except Exception:
-                pass
-
-
 def run_harness(run_dir: str | Path, contract: dict, timeout: int = 35) -> dict:
     """Run UI smoke walkthrough harness in an isolated subprocess with watchdog timer."""
     run_dir = Path(run_dir).resolve()
@@ -202,7 +131,8 @@ def run_harness(run_dir: str | Path, contract: dict, timeout: int = 35) -> dict:
         proc_exc = None
         timed_out = False
 
-        scrubbed_env = {k: v for k, v in os.environ.items() if "DEEPSEEK" not in k and "API_KEY" not in k}
+        allowed = {"PATH", "SYSTEMROOT", "TEMP", "TMP", "WINDIR", "COMSPEC", "PATHEXT", "PYTHONPATH"}
+        scrubbed_env = {k: v for k, v in os.environ.items() if k.upper() in allowed}
 
         try:
             proc = subprocess.run(

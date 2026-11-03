@@ -3,6 +3,7 @@ import os
 import sys
 import json
 import unittest
+import unittest.mock
 import subprocess
 from pathlib import Path
 
@@ -314,7 +315,8 @@ class TestVerify(unittest.TestCase):
                     call_env = mock_run.call_args.kwargs.get("env")
                     self.assertIsNotNone(call_env)
                     self.assertNotIn("DEEPSEEK_API_KEY", call_env)
-                    self.assertIn("SAFE_VAR", call_env)
+                    self.assertNotIn("SAFE_VAR", call_env)
+                    self.assertIn("PATH", call_env)
 
     def test_harness_strict_failure_on_timeout_or_crash(self):
         """Harness returns status: fail when subprocess times out or crashes (no in-process fallback)."""
@@ -355,7 +357,8 @@ class TestVerify(unittest.TestCase):
                     call_env = mock_run.call_args.kwargs.get("env")
                     self.assertIsNotNone(call_env)
                     self.assertNotIn("DEEPSEEK_API_KEY", call_env)
-                    self.assertIn("SAFE_VAR", call_env)
+                    self.assertNotIn("SAFE_VAR", call_env)
+                    self.assertIn("PATH", call_env)
 
 
 if __name__ == "__main__":
