@@ -7,7 +7,9 @@ import io
 import json
 import shutil
 import inspect
+import builtins                      # <-- NEW
 import tkinter
+import tkinter.ttk as ttk            # <-- NEW
 import tempfile
 import threading
 import traceback
@@ -271,6 +273,56 @@ def check_v3_contract_conformance(run_dir: str | Path, contract: dict) -> list[d
     return errors
 
 
+def _tk_arity_error(target_class, called_name, call, table):
+    """If called_name is inherited from a Tk base, check the call's argument shape."""
+    if any(isinstance(a, ast.Starred) for a in call.args) or any(k.arg is None for k in call.keywords):
+        return None
+    for b in table.get(target_class, {}).get("bases", []):
+        short = b.split(".")[-1]
+        base = getattr(tkinter, short, None) or getattr(ttk, short, None)
+        if inspect.isclass(base) and callable(getattr(base, called_name, None)):
+            try:
+                sig = inspect.signature(getattr(base, called_name))
+                sig.bind(None, *([None] * len(call.args)), **{k.arg: None for k in call.keywords})
+            except TypeError as e:
+                return str(e)
+            except ValueError:
+                return None
+    return None
+
+
+def _inherited(cname, table, seen=None):
+    """Return (set_of_inherited_names, unknown_base_flag).
+    Walks the class's base-class chain. If a base is defined in the project,
+    recurse into it; otherwise look it up on tkinter / tkinter.ttk / builtins.
+    If the base can't be resolved at all, flag unknown=True so the caller can
+    suppress the "method does not exist" rule (silence is better than a false
+    positive on an unresolvable base).
+    """
+    seen = seen or set()
+    if cname in seen:
+        return set(), False
+    seen.add(cname)
+    names, unknown = set(), False
+    for b in table.get(cname, {}).get("bases", []):
+        short = b.split(".")[-1]
+        if short in ("object", "ABC"):
+            continue
+        if short in table:
+            info = table[short]
+            names |= info["methods"] | info["properties"] | info["attrs"]
+            n2, u2 = _inherited(short, table, seen)
+            names |= n2
+            unknown |= u2
+        else:
+            base = getattr(tkinter, short, None) or getattr(ttk, short, None) or getattr(builtins, short, None)
+            if inspect.isclass(base):
+                names |= set(dir(base))
+            else:
+                unknown = True
+    return names, unknown
+
+
 def check_v4_call_resolution(run_dir: str | Path) -> list[dict]:
     """V4: Static cross-file call resolution and owner validation.
 
@@ -301,7 +353,7 @@ def check_v4_call_resolution(run_dir: str | Path) -> list[dict]:
                 methods = set()
                 properties = set()
                 attrs = set()
-
+                bases = [ast.unparse(b) for b in node.bases]   # <-- NEW
                 for item in node.body:
                     if isinstance(item, ast.FunctionDef):
                         is_prop = any((isinstance(d, ast.Name) and d.id == "property") for d in item.decorator_list)
@@ -325,6 +377,7 @@ def check_v4_call_resolution(run_dir: str | Path) -> list[dict]:
                     "methods": methods,
                     "properties": properties,
                     "attrs": attrs,
+                    "bases": bases,       # <-- NEW
                     "file": rel_path
                 }
 
@@ -336,7 +389,7 @@ def check_v4_call_resolution(run_dir: str | Path) -> list[dict]:
             # Map self.x to ClassName assigned in __init__ or class methods
             assigned_owners = {}
             all_self_assigned = set()
-
+            callable_attrs = set()      # <-- NEW: attrs known to hold a callable
             for item in class_node.body:
                 if isinstance(item, ast.FunctionDef):
                     for stmt in ast.walk(item):
@@ -348,6 +401,9 @@ def check_v4_call_resolution(run_dir: str | Path) -> list[dict]:
                                     if isinstance(stmt.value, ast.Call):
                                         if isinstance(stmt.value.func, ast.Name):
                                             assigned_owners[target.attr] = stmt.value.func.id
+                                    # Stored callback / lambda param -> known callable
+                                    if isinstance(stmt.value, (ast.Lambda, ast.Name)):
+                                        callable_attrs.add(target.attr)
                         elif isinstance(stmt, ast.AnnAssign):
                             target = stmt.target
                             if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name) and target.value.id == "self":
@@ -356,6 +412,8 @@ def check_v4_call_resolution(run_dir: str | Path) -> list[dict]:
                                 if stmt.value and isinstance(stmt.value, ast.Call):
                                     if isinstance(stmt.value.func, ast.Name):
                                         assigned_owners[target.attr] = stmt.value.func.id
+                                if stmt.value and isinstance(stmt.value, (ast.Lambda, ast.Name)):
+                                    callable_attrs.add(target.attr)
 
             # Scan method calls
             for item in class_node.body:
@@ -402,6 +460,20 @@ def check_v4_call_resolution(run_dir: str | Path) -> list[dict]:
                                         })
                                     elif target_class in symbol_table:
                                         cls_info = symbol_table[target_class]
+                                        # Skip anything inherited from tkinter / own bases / unknown bases.
+                                        # Without this, self.hud.pack() on a HUD(tk.Frame) is flagged as a
+                                        # phantom "method does not exist" error (Fix F + G).
+                                        inherited, unknown = _inherited(target_class, symbol_table)
+                                        if called_name in inherited or unknown:
+                                            err = None if unknown else _tk_arity_error(target_class, called_name, call_node, symbol_table)
+                                            if err:
+                                                errors.append({
+                                                    "check": "V4",
+                                                    "file": rel_path,
+                                                    "line": call_node.lineno,
+                                                    "message": f"'{called_name}' is inherited from Tk and cannot take these arguments ({err}); use a different name for custom behavior"
+                                                })
+                                            continue
                                         # Bug 2 check: called_name is an attribute or property, not a method
                                         if called_name in cls_info["properties"] or (called_name in cls_info["attrs"] and called_name not in cls_info["methods"]):
                                             errors.append({
@@ -423,6 +495,11 @@ def check_v4_call_resolution(run_dir: str | Path) -> list[dict]:
                             # Subcase 1b: receiver is self (e.g. self.prompt())
                             elif isinstance(receiver, ast.Name) and receiver.id == "self":
                                 if enclosing_class in symbol_table:
+                                    # Skip stored callbacks: self.cb = cb; self.cb() is legitimate (Fix H).
+                                    # self.current_question = None; self.current_question() stays flagged,
+                                    # because None is not a Lambda/Name assignment.
+                                    if called_name in callable_attrs:
+                                        continue
                                     cls_info = symbol_table[enclosing_class]
                                     if called_name in cls_info["properties"] or (called_name in cls_info["attrs"] and called_name not in cls_info["methods"]):
                                         errors.append({
@@ -644,8 +721,7 @@ def check_v7_test_execution(run_dir: str | Path, timeout: int = 60) -> list[dict
     proc_exc = None
     timed_out = False
 
-    allowed = {"PATH", "SYSTEMROOT", "TEMP", "TMP", "WINDIR", "COMSPEC", "PATHEXT"}
-    scrubbed_env = {k: v for k, v in os.environ.items() if k.upper() in allowed}
+    scrubbed_env = {k: v for k, v in os.environ.items() if "DEEPSEEK" not in k.upper() and "API_KEY" not in k.upper()}
 
     try:
         proc = subprocess.run(
@@ -706,11 +782,17 @@ def check_v8_harness(run_dir: str | Path, contract: dict, timeout: int = 35) -> 
             "message": f"UI harness skipped: {result.get('reason', 'Unknown reason')}"
         }]
 
+    tb = (result.get("traceback") or "")[-1500:]
+    step = result.get("step") or result.get("stage") or ""
+    msg = f"UI harness failed at '{step}': {result.get('error', 'Unknown harness error')}"
+    if tb:
+        msg += "\n" + tb
+
     return [{
         "check": "V8",
         "file": "harness",
         "line": 0,
-        "message": f"UI harness failed: {result.get('error', 'Unknown harness error')}"
+        "message": msg
     }]
 
 

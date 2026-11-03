@@ -41,6 +41,23 @@ def run():
 
     root.report_callback_exception = callback_error_handler
 
+    # Neutralize modal dialogs so smoke steps can never block on user input.
+    # Without this, a generated end_game() that calls messagebox.showinfo("Game Over")
+    # blocks forever and the 35-second watchdog reports a false V8 failure.
+    try:
+        import tkinter.messagebox as mb
+        import tkinter.simpledialog as sd
+        import tkinter.filedialog as fd
+        mb.showinfo = mb.showwarning = mb.showerror = lambda *a, **k: "ok"
+        mb.askyesno = mb.askokcancel = mb.askretrycancel = lambda *a, **k: True
+        mb.askquestion = lambda *a, **k: "yes"
+        sd.askstring = lambda *a, **k: "test"
+        sd.askinteger = lambda *a, **k: 1
+        sd.askfloat = lambda *a, **k: 1.0
+        fd.askopenfilename = fd.asksaveasfilename = lambda *a, **k: ""
+    except Exception:
+        pass
+
     # 2. Import main and create_app(root)
     try:
         import main
@@ -85,6 +102,14 @@ def run():
             with open(out_file, "w", encoding="utf-8") as f:
                 json.dump({"status": "fail", "step": call_name, "error": "Callback exception occurred", "traceback": callback_errors[0]}, f)
             sys.exit(1)
+
+    if steps_executed == 0:
+        with open(out_file, "w", encoding="utf-8") as f:
+            json.dump(
+                {"status": "fail", "stage": "smoke", "error": "No smoke steps executed (steps_executed == 0)"},
+                f
+            )
+        sys.exit(1)
 
     try:
         root.destroy()
@@ -131,8 +156,7 @@ def run_harness(run_dir: str | Path, contract: dict, timeout: int = 35) -> dict:
         proc_exc = None
         timed_out = False
 
-        allowed = {"PATH", "SYSTEMROOT", "TEMP", "TMP", "WINDIR", "COMSPEC", "PATHEXT"}
-        scrubbed_env = {k: v for k, v in os.environ.items() if k.upper() in allowed}
+        scrubbed_env = {k: v for k, v in os.environ.items() if "DEEPSEEK" not in k.upper() and "API_KEY" not in k.upper()}
 
         try:
             proc = subprocess.run(

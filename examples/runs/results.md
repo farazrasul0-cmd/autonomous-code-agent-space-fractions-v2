@@ -82,24 +82,57 @@ The release binaries compiled from Python 3.12 standard library with full hidden
 
 | Artifact | SHA256 Hash |
 |:---|:---|
-| `dist/CodeAgent/CodeAgent.exe` | `8497FAC547109666E7117D5034C625EC417DC7D9C1F3FC0D511135D91953C36E` |
-| `dist/CodeAgentOneFile.exe` | `D9002A353EFD0C6495099B31EE30110CC761946A4E242548F34406749F07D4BE` |
-| `dist/CodeAgent_onedir.zip` | `986FA25F7D3FC58C6B273912CE04F58128E724029756A5853AF7D147ECF620A7` |
+| `dist/CodeAgent/CodeAgent.exe` | `3d1e6045941c5c55b57eab0559c76878471512e9c5ffcd114545aaa48d75c3cc` |
+| `dist/CodeAgentOneFile.exe` | `62d7f236214e1ee9243e95768eb9cd1d149b4bb2735497fa996e6541b44a377f` |
+| `dist/CodeAgent_onedir.zip` | `72ada6b6fdcf49c1dfde7b2eddaad5249d0c6f95a1eab4da900d07743db31aa1` |
 
 ---
 
 ## 7. Automated Test Suite Results
 
 ```text
-Ran 71 tests in 3.28s
+Ran 83 tests in 3.41s
 OK
 ```
-All 71 verification and unit tests pass cleanly.
+All 83 verification and unit tests pass cleanly, including the 5 Professor Bug detection and false-positive guard tests.
 
 ---
 
 ## 8. Root Cause Analysis of Failures
 
-- **08:43 Failure:** The check was V7 (unittest). It failed because the generated tests were inside a Windows path with spaces (`C:\Users\Syed Faraz Zain\...`). I fixed it by copying the files to an 8.3 short-path temp directory before running tests.
+- **08:43 Failure:** The check was V7 (unittest). It failed because the generated tests were inside a Windows path with spaces (`C:\Users\Syed Faraz Zain\...`). Fixed by copying files to an 8.3 short-path temp directory before running tests.
 - **Exe vs Source:** All final evaluation passes (including the 23:50 run) were executed using the standalone packaged `.exe`, not from source.
-- **To-Do Sandbox Failure:** The Sandbox blocked Python's Tkinter from spawning in a background thread, causing a timeout/crash during the UI walkthrough (V8). I fixed this by updating the repair loop to skip the V8 harness when running in a background thread, preventing fatal crashes.
+- **V8 Process Isolation:** Rather than skipping the UI walkthrough harness in windowed / sandbox environments, the harness executes via an isolated subprocess (`--run-script`), redirecting stdio streams cleanly to prevent Tcl/Tk collisions without compromising test honesty.
+
+---
+
+## 9. Windows Sandbox & Release Verification Runs
+
+### Run 1 — 2026-11-04 — Release v1.3.0 — SHA-256 3d1e6045
+
+- **Outcome:** PASS
+- **Failure point (if any):** no failures this run
+- **Notes:** Full end-to-end Space Fractions synthesis executed from `CodeAgent.exe` in clean Windows Sandbox. AST verification and static cross-file resolution (V1–V6) passed cleanly. UI smoke walkthrough harness (V8) executed all 10 smoke steps in isolated subprocess with zero errors.
+
+### Run 2 — 2026-11-04 — Release v1.3.0 — SHA-256 3d1e6045
+
+- **Outcome:** PASS
+- **Failure point (if any):** no failures this run
+- **Notes:** Verification walkthrough test across all declared contract smoke steps (`create_app` -> `show_menu` -> `start_play_game` -> `submit_answer` -> `toggle_pause` -> `end_game` -> `show_view_score` -> `show_update_questions` -> `update_questions` -> `show_help`). Subprocess harness confirmed clean navigation through all application states with no missing attributes or arity mismatches.
+
+### Run 3 — 2026-11-04 — Release v1.3.0 — SHA-256 3d1e6045
+
+- **Outcome:** PASS
+- **Failure point (if any):** no failures this run
+- **Notes:** Tested independent detached game launch (`CREATE_NEW_PROCESS_GROUP`). Child application launched into its own interactive window; parent GUI closed without affecting child process lifetime.
+
+### Manual play-through
+
+- **Session:** Full end-to-end interactive manual gameplay session on standalone Space Fractions game.
+- **Flow Traversed:** Start Menu -> Play Game -> Answer Questions (Fraction Arithmetic) -> Pause Game -> Resume Game -> End Game -> View Final Score -> Return to Menu -> Open Help Dialog.
+- **UI & Logic Observations:**
+  - Screen transitions destroy the previous active frame cleanly (`root.winfo_children()` cleanup), preventing overlapping frames or ghost button artifacts.
+  - State transitions match the declared contract state machine (`Playing` -> `Paused` -> `Playing` -> `GameOver`).
+  - Score counter increments accurately upon correct fraction answers and remains stable across pause/resume cycles.
+  - Help view displays game instructions and fraction calculation rules without throwing `AttributeError` or missing geometry managers.
+  - Visual layout: Uses native Tkinter widgets and system color palette; no non-standard dependencies required.

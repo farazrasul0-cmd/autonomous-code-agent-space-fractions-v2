@@ -297,6 +297,32 @@ class TestAgent(unittest.TestCase):
         self.assertNotIn("Verdict: FAILED", report)
         self.assertNotIn("Verdict: PASSED", report)
 
+    def test_build_traceability_table_maps_app_methods(self):
+        """Verify build_traceability_table maps App methods from app.py correctly."""
+        from src.agent import build_traceability_table
+        contract = {
+            "traceability": [
+                {"diagram_element": "UseCaseDiagram.Play Game", "code_symbol": "App.start_play_game"},
+                {"diagram_element": "UseCaseDiagram.View Score", "code_symbol": "App.show_view_score"},
+                {"diagram_element": "UseCaseDiagram.Update Questions", "code_symbol": "App.update_questions"},
+                {"diagram_element": "UseCaseDiagram.View Help", "code_symbol": "App.show_help"}
+            ]
+        }
+        app_code = (
+            "class Application:\n"
+            "    def start_play_game(self): pass\n"
+            "    def show_view_score(self): pass\n"
+            "    def update_questions(self, qs): pass\n"
+            "    def show_help(self): pass\n"
+        )
+        safe_write(self.temp_dir, "app.py", app_code)
+        rows = build_traceability_table(self.temp_dir, contract)
+        self.assertEqual(len(rows), 4)
+        for r in rows:
+            self.assertEqual(r["status"], "Verified", f"Expected Verified for {r['code_symbol']}, got {r}")
+            self.assertEqual(r["file"], "app.py")
+            self.assertNotEqual(r["line"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()
