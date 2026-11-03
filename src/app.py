@@ -82,8 +82,6 @@ def launch_game(main_path: str | Path) -> subprocess.Popen:
     if not target.exists():
         raise FileNotFoundError(f"Entrypoint file not found: {target}")
 
-    run_dir = target.parent
-
     if getattr(sys, "frozen", False):
         cmd = [sys.executable, "--run-script", str(target)]
     else:
@@ -93,15 +91,14 @@ def launch_game(main_path: str | Path) -> subprocess.Popen:
     if sys.platform == "win32":
         creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
 
+    # DO NOT pass cwd or env. Let PyInstaller bootloader work normally.
     proc = subprocess.Popen(
         cmd,
-        cwd=str(run_dir),
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         close_fds=True,
-        creationflags=creationflags,
-        env=os.environ.copy()
+        creationflags=creationflags
     )
     return proc
 

@@ -474,11 +474,27 @@ def check_v5_tk_collisions(run_dir: str | Path) -> list[dict]:
 
 def _run_v7_in_process(run_dir: Path, tests_dir: Path, timeout: int = 25) -> list[dict]:
     """Run unit tests in-process using unittest.TextTestRunner in a separate thread."""
+    run_dir = Path(run_dir).resolve()
+    tests_dir = Path(tests_dir).resolve()
     run_dir_str = str(run_dir)
     sys_path_added = False
     if run_dir_str not in sys.path:
         sys.path.insert(0, run_dir_str)
         sys_path_added = True
+
+    # Evict project modules from previous runs to prevent stale module caching
+    for name in ["models", "engine", "ui", "app", "main"]:
+        if name in sys.modules:
+            del sys.modules[name]
+
+    init_file = tests_dir / "__init__.py"
+    created_temp_init = False
+    if not init_file.exists():
+        try:
+            init_file.touch()
+            created_temp_init = True
+        except Exception:
+            pass
 
     result_holder = {}
 
@@ -496,9 +512,16 @@ def _run_v7_in_process(run_dir: Path, tests_dir: Path, timeout: int = 25) -> lis
         except Exception as exc:
             result_holder["exception"] = exc
 
-    t = threading.Thread(target=worker, daemon=True)
-    t.start()
-    t.join(timeout=timeout)
+    try:
+        t = threading.Thread(target=worker, daemon=True)
+        t.start()
+        t.join(timeout=timeout)
+    finally:
+        if created_temp_init and init_file.exists():
+            try:
+                init_file.unlink()
+            except Exception:
+                pass
 
     if sys_path_added and run_dir_str in sys.path:
         try:
@@ -540,6 +563,10 @@ def check_v7_test_execution(run_dir: str | Path, timeout: int = 60) -> list[dict
     tests_dir = run_dir / "tests"
     if not tests_dir.exists():
         return []
+
+    # If frozen, completely bypass subprocess to prevent PyInstaller embedded interpreter crash
+    if getattr(sys, "frozen", False):
+        return _run_v7_in_process(run_dir, tests_dir, timeout=timeout)
 
     # Ensure tests/__init__.py exists so unittest discover can import start_dir cleanly
     init_file = tests_dir / "__init__.py"

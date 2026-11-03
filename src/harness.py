@@ -101,13 +101,18 @@ if __name__ == "__main__":
 
 
 def _run_harness_in_process(run_dir: str | Path, contract: dict) -> dict:
-    """Fallback: Execute UI smoke walkthrough in-process when subprocess is blocked."""
+    """Fallback: Execute UI smoke walkthrough in-process when subprocess is blocked or frozen."""
     run_dir = Path(run_dir).resolve()
     run_dir_str = str(run_dir)
     sys_path_added = False
     if run_dir_str not in sys.path:
         sys.path.insert(0, run_dir_str)
         sys_path_added = True
+
+    # Evict project modules from previous runs to prevent stale module caching
+    for name in ["models", "engine", "ui", "app", "main"]:
+        if name in sys.modules:
+            del sys.modules[name]
 
     try:
         import tkinter as tk
@@ -169,6 +174,10 @@ def _run_harness_in_process(run_dir: str | Path, contract: dict) -> dict:
 def run_harness(run_dir: str | Path, contract: dict, timeout: int = 35) -> dict:
     """Run UI smoke walkthrough harness in an isolated subprocess with watchdog timer."""
     run_dir = Path(run_dir).resolve()
+
+    # If frozen, completely bypass subprocess to prevent PyInstaller embedded interpreter crash
+    if getattr(sys, "frozen", False):
+        return _run_harness_in_process(run_dir, contract)
 
     with tempfile.TemporaryDirectory(prefix="harness_") as tmp_dir:
         tmp_path = Path(tmp_dir)
