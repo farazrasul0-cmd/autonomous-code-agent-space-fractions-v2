@@ -782,7 +782,7 @@ class App(tk.Tk):
 
         except BudgetExceededError as be:
             self.queue.put({"type": "error", "message": f"Budget ceiling exceeded: {be}"})
-        except Exception as e:
+        except BaseException as e:
             self.queue.put({"type": "error", "message": f"Unexpected error: {str(e)}"})
 
     def _poll_queue(self):

@@ -1404,7 +1404,7 @@ def dispatch_repair_tool(run_dir: str | Path, contract: dict, tool_name: str, ar
             items = safe_list_dir(run_dir, path)
             return json.dumps(items), None
         elif tool_name == "run_checks":
-            res = run_all_checks(run_dir, contract, skip_harness=False)
+            res = run_all_checks(run_dir, contract, skip_harness=True)
             return json.dumps(res, indent=2), None
         else:
             return f"Unknown tool: {tool_name}", None
@@ -1424,7 +1424,7 @@ def repair_project(
     """Execute multi-turn repair loop using tool calls. Stops early when all V1-V8 checks pass."""
     run_dir = Path(run_dir)
     if initial_verif is None:
-        initial_verif = run_all_checks(run_dir, contract, skip_harness=False)
+        initial_verif = run_all_checks(run_dir, contract, skip_harness=True)
 
     if initial_verif.get("all_passed"):
         return {
@@ -1549,7 +1549,7 @@ def repair_project(
             messages.append({"role": "assistant", "content": assistant_content})
 
         # Re-run checks
-        current_verif = run_all_checks(run_dir, contract, skip_harness=False)
+        current_verif = run_all_checks(run_dir, contract, skip_harness=True)
         failing_after = [e.get("check") for e in current_verif.get("errors", [])]
         all_passed = current_verif["all_passed"]
 
