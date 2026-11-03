@@ -3,7 +3,7 @@
 A standalone, lightweight Windows desktop agent built with the Python 3.12 standard library that reads software architecture documentation and UML diagrams, synthesizes an architectural contract, incrementally implements source code modules against the contract using DeepSeek (`deepseek-v4-pro`), enforces multi-layered verification (AST static analysis, contract conformance, unit tests, and headless Tkinter UI walkthroughs), and autonomously repairs failures in a multi-turn tool-calling loop.
 
 ## Video Walkthrough
-- **Demonstration Video**: [YouTube Walkthrough (Demo & Autonomous Repair Walkthrough)](https://www.youtube.com/watch?v=PLACEHOLDER)
+- **Demonstration Video**: [YouTube Walkthrough (Demo & Autonomous Repair Walkthrough)](https://www.youtube.com/watch?v=PLACEHOLDER) *(Replace `PLACEHOLDER` with published video ID and verify in an incognito window)*
 
 ---
 
@@ -45,18 +45,18 @@ python -m src.app
 
 ## 3. Evaluation Results Summary
 
-Evaluation results across all runs (including failures) are recorded in [examples/runs/results.md](examples/runs/results.md):
+Evaluation results across all runs (including failures) are recorded in [results.md](results.md):
 
-- **Unified Run Table**: Every run from the project lifecycle is recorded in a single table with date, input, source/exe, build commit, first-attempt failures, repair rounds, final result, and cost. See [examples/runs/results.md](examples/runs/results.md) for the full table.
+- **Unified Run Table**: Every run from the project lifecycle is recorded in a single table with date, input, source/exe, build commit, first-attempt failures, repair rounds, final result, and cost. See [results.md](results.md) for the full table.
 - **Dynamic Contract Synthesis**: Successfully parsed the second input specification (To-Do List: 1 UseCase diagram, 1 Class diagram, 1 State diagram) and dynamically generated an independent domain model (`Task`, `TaskManager`) with zero hardcoded game logic.
 - **Autonomous Healing**: In `eval_todo_1`, initial generation produced a test mismatch (V7); the autonomous repair loop patched `models.py` at Round 2, achieving all 8 checks PASS and a final verdict of **PASSED**. In `eval_sf_1`, Round 3 repaired `app.py`, converting V8 to PASS.
-- **Total Evaluation Spend**: Authoritative total spend verified on DeepSeek Dashboard at **¥1.91 CNY (~$0.26 USD)** across all development, testing, and evaluation runs, remaining comfortably under the strict $0.85 budget cap. A few cents per run (Dashboard is the authoritative source).
+- **Total Evaluation Spend**: Authoritative total spend verified on DeepSeek Dashboard at **¥1.98 CNY (~$0.27 USD)** across all development, testing, release binary evaluations, and rehearsals, remaining comfortably under the strict $0.85 budget cap. A few cents per run (Dashboard is the authoritative source; typical synthesis runs cost between $0.009 and $0.025).
 
 ---
 
 ## 4. Honest Limitations & Architecture Decisions
 
-1. **Source Line Count**: The agent is ~4,200 lines to support rigorous AST verification (V1-V8), while the generated output remains a lean ~500 lines across 6 files. All 83 automated verification and unit tests pass cleanly.
-2. **3+1 Evaluation Rationale**: See examples/runs/results.md for the complete evaluation table. I did not get clarification on whether the $1 limit is per run or for the whole evaluation, so I assumed the stricter reading.
+1. **Source Line Count**: The agent is ~4,200 lines to support rigorous AST verification (V1-V8), while the generated output remains a lean ~500 lines across 6 files. All 84 automated verification and unit tests pass cleanly (`pytest -q` reports 84 passed, while `python -m unittest discover tests` reports 83 because pytest additionally executes the counter fixture test).
+2. **Multi-Run Evaluation Methodology**: See [results.md](results.md) for the complete unified evaluation table. I did not get clarification on whether the $1 limit is per run or for the whole evaluation, so I assumed the stricter reading ($1.00 total for the entire evaluation).
 3. **Architectural Conflicts Policy**: When architectural specifications contain contradictory requirements (e.g. web microservices or cloud Docker containers alongside a desktop GUI), the standalone desktop Tkinter architecture strictly supersedes distributed microservices.
 4. **Naming Conventions**: Diagram names in camelCase are systematically translated to standard Python `snake_case` at the contract boundary, backed by `@property` decorators with private storage attributes.

@@ -6,7 +6,7 @@
 > **Evaluation Policy Note**:
 > Because instructions did not differentiate whether the $1.00 budget limit was per-run or across the entire evaluation lifecycle, I operated under the stricter, zero-risk interpretation: a strict cumulative cap across the whole evaluation. All runs—including development baselines, GUI tests, replays, and release binary evaluations—were executed with hard cost ceilings ($0.15 per-run stop, $0.85 evaluation stop).
 
-Every run across the lifecycle of the project is recorded honestly below without omitting failures or anomalies. The official DeepSeek Dashboard confirms our actual cumulative spend across all prompt engineering, development tests, and evaluation runs is **¥1.91 CNY (~$0.26 USD)**, well under the $0.85 budget ceiling.
+Every run across the lifecycle of the project is recorded honestly below without omitting failures or anomalies. The official DeepSeek Dashboard confirms our actual cumulative spend across all prompt engineering, development tests, release binary evaluations, and rehearsals is **¥1.98 CNY (~$0.27 USD)**, well under the $0.85 budget ceiling.
 
 ### Release Package Integrity & Execution Environment
 - **Distribution Package**: `CodeAgent_onedir.zip` (PyInstaller onedir distribution)
@@ -157,10 +157,10 @@ To verify interactive GUI stability, state machine fidelity, and geometry cleanu
 
 ## 6. Spend Accounting & Authoritative Verification
 
-- **Authoritative Spend**: **¥1.91 CNY (~$0.26 USD)** total on the DeepSeek Platform Dashboard across all project activity.
+- **Authoritative Spend**: **¥1.98 CNY (~$0.27 USD)** total on the DeepSeek Platform Dashboard across all project activity (prompt engineering, development tests, release binary evaluations, and rehearsals).
 - **Budget Ceiling**: $0.85 USD cumulative evaluation limit ($1.00 hard stop).
-- **Per-Run Economy**: Average synthesis and repair cost ranges from **$0.009** to **$0.025** per run.
-- **Remaining Headroom**: Over **69%** of the budget ceiling remains untouched.
+- **Per-Run Economy**: Average synthesis and repair cost ranges from **$0.009** to **$0.025** per run (Dashboard is the authoritative source).
+- **Remaining Headroom**: Over **68%** of the budget ceiling remains untouched.
 
 ---
 
@@ -169,8 +169,8 @@ To verify interactive GUI stability, state machine fidelity, and geometry cleanu
 The agent's test suite verifies static analyzers, contract checkers, UI subprocess runners, and bug guardrails:
 
 ```text
-Ran 83 tests in 3.66s
-OK
+pytest -q
+84 passed in 3.68s
 ```
 
-All 83 tests pass cleanly with zero failures or skipped assertions.
+All 84 tests pass cleanly with zero failures or skipped assertions (`pytest -q` executes 84 tests, and `python -m unittest discover tests` executes 83 tests because pytest additionally discovers the counter test fixture).
