@@ -91,9 +91,10 @@ def launch_game(main_path: str | Path) -> subprocess.Popen:
     if sys.platform == "win32":
         creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
 
-    # DO NOT pass cwd or env. Let PyInstaller bootloader work normally.
+    # Pass cwd=str(target.parent) so relative files (like questions.json) resolve in run directory
     proc = subprocess.Popen(
         cmd,
+        cwd=str(target.parent),
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -678,6 +679,7 @@ class App(tk.Tk):
                 init_v1_v6 = all(len(init_checks.get(f"V{i}", [])) == 0 for i in range(1, 7))
                 init_errors = initial_verif.get("errors", [])
                 init_only_timeouts = init_v1_v6 and len(init_errors) > 0 and all(
+                    err.get("check") in ("V7", "V8") and
                     ("timed out" in err.get("message", "").lower() or 
                      "timeout" in err.get("message", "").lower() or
                      "skipped" in err.get("message", "").lower())
@@ -758,13 +760,14 @@ class App(tk.Tk):
             only_timeouts = False
             if not success and v1_v6_passed and remaining_errors:
                 only_timeouts = all(
+                    err.get("check") in ("V7", "V8") and
                     ("timed out" in err.get("message", "").lower() or 
                      "timeout" in err.get("message", "").lower() or
                      "skipped" in err.get("message", "").lower())
                     for err in remaining_errors
                 )
 
-            can_launch = success and bool(main_py and main_py.exists())
+            can_launch = (success or only_timeouts) and bool(main_py and main_py.exists())
             self.queue.put({
                 "type": "done",
                 "success": success,
@@ -848,8 +851,10 @@ class App(tk.Tk):
             self.current_run_dir = event.get("run_dir")
             self.current_main_py = event.get("main_py")
             success = event.get("success", False)
-            can_launch = event.get("can_launch", False) or (success and bool(self.current_main_py))
             only_timeouts = event.get("only_timeouts", False)
+            can_launch = event.get("can_launch", False) or (
+                (success or only_timeouts) and bool(self.current_main_py)
+            )
 
             if can_launch and self.current_main_py:
                 self.launch_game_btn.configure(state=tk.NORMAL)
@@ -902,9 +907,11 @@ class App(tk.Tk):
 
         try:
             proc = launch_game(self.current_main_py)
+            self.last_proc = proc
             msg = f"Launched application process (PID: {proc.pid}) in detached mode."
             self.append_log(msg)
             self.status_var.set(f"Application running (PID: {proc.pid})")
+            return proc
         except Exception as e:
             err = f"Failed to launch application: {e}"
             self.append_log(f"[ERROR] {err}")

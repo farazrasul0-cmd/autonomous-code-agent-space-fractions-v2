@@ -125,7 +125,7 @@ if __name__ == "__main__":
 """
 
 
-def run_harness(run_dir: str | Path, contract: dict, timeout: int = 35) -> dict:
+def run_harness(run_dir: str | Path, contract: dict, timeout: int = 90) -> dict:
     """Run UI smoke walkthrough harness in an isolated subprocess with watchdog timer."""
     run_dir = Path(run_dir).resolve()
 

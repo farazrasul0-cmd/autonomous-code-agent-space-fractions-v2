@@ -42,7 +42,7 @@ class TestApp(unittest.TestCase):
 
     def test_launch_game_detached_process(self):
         """Verify launch_game spawns a detached independent process with valid PID."""
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             temp_py = Path(temp_dir) / "dummy_main.py"
             temp_py.write_text("import time\ntime.sleep(2)\n", encoding="utf-8")
 
@@ -56,6 +56,57 @@ class TestApp(unittest.TestCase):
                 proc.wait(timeout=2)
             except Exception:
                 pass
+
+    def test_launch_game_from_button_uses_target_parent_working_dir(self):
+        """Verify Launch button executes game with cwd=target.parent so relative questions.json is written to run_dir."""
+        import json
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
+            game_dir = Path(temp_dir) / "run_gui_test"
+            game_dir.mkdir()
+            game_script = game_dir / "main.py"
+            game_code = (
+                "import sys, os, json\n"
+                "class Game:\n"
+                "    def __init__(self):\n"
+                "        self.questions = [{'id': 'q1', 'prompt': '1/2 + 1/4', 'answer': '3/4'}]\n"
+                "    def play_question(self):\n"
+                "        pass\n"
+                "    def admin_add_question(self, q):\n"
+                "        self.questions.append(q)\n"
+                "        with open('questions.json', 'w', encoding='utf-8') as f:\n"
+                "            json.dump(self.questions, f)\n"
+                "if __name__ == '__main__':\n"
+                "    g = Game()\n"
+                "    g.play_question()\n"
+                "    g.admin_add_question({'id': 'q2', 'prompt': '2/3 - 1/3', 'answer': '1/3'})\n"
+                "    sys.exit(0)\n"
+            )
+            game_script.write_text(game_code, encoding="utf-8")
+
+            app = create_app(headless=True)
+            repo_q = repo_root / "questions.json"
+            try:
+                app.current_main_py = str(game_script)
+                app.current_run_dir = str(game_dir)
+                app.launch_game_btn.configure(state="normal")
+
+                app.launch_game_btn.invoke()
+                proc = getattr(app, "last_proc", None)
+                if proc:
+                    proc.wait(timeout=5)
+
+                game_q = game_dir / "questions.json"
+
+                self.assertTrue(game_q.exists(), "questions.json should be written to game_dir")
+                self.assertFalse(repo_q.exists(), "questions.json should NOT be written to repo root")
+
+                data = json.loads(game_q.read_text(encoding="utf-8"))
+                self.assertEqual(len(data), 2)
+                self.assertEqual(data[1]["id"], "q2")
+            finally:
+                app.destroy()
+                if repo_q.exists():
+                    repo_q.unlink()
 
     def test_launch_game_raises_on_missing_file(self):
         """launch_game raises FileNotFoundError if entrypoint does not exist."""
@@ -173,7 +224,7 @@ class TestApp(unittest.TestCase):
     def test_run_script_cli_flag(self):
         """Verify python src/app.py --run-script <path> executes target script without launching GUI."""
         import subprocess
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             marker = Path(temp_dir) / "marker.txt"
             script = Path(temp_dir) / "test_target.py"
             script.write_text(f"from pathlib import Path\nPath(r'{marker}').write_text('ran', encoding='utf-8')\n", encoding="utf-8")
