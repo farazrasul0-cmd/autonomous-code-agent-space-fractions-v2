@@ -25,7 +25,7 @@ As required by Task 1, this agent investigates open-source Claude-Code and agent
 ## 2. Quick Start
 
 ### Running the Standalone Executable (.exe)
-1. Download the latest release (`CodeAgent_onedir.zip`, Release `v1.3.0`, commit `679bbae`) from [GitHub Releases](https://github.com/farazrasul0-cmd/autonomous-code-agent-space-fractions-v2/releases) and extract the archive.
+1. Download the latest release (`CodeAgent_onedir.zip`, Release `v1.1.0`, commit `679bbae`) from [GitHub Releases](https://github.com/farazrasul0-cmd/autonomous-code-agent-space-fractions-v2/releases) and extract the archive.
 2. Double-click **`CodeAgent.exe`**.
    > **Note on Windows SmartScreen**: Because this binary is unsigned, Windows SmartScreen may display a blue warning dialog (*"Windows protected your PC"*). Click **"More info"**, then click **"Run anyway"**.
 3. **Configure API Key**: Enter your DeepSeek API key in the masked field (or leave empty if `DEEPSEEK_API_KEY` is set in your environment). Click **"Test Key"** to verify connectivity.

@@ -1,4 +1,4 @@
-# DeepSeek Code Agent — Release v1.3.0
+# DeepSeek Code Agent — Release v1.1.0
 
 Official standalone binary release of the DeepSeek Code Agent for Task 1 evaluation. Built from commit `679bbae` (`679bbaeb93c92d664d61d6a25cdd3f648873b32b`).
 
