@@ -5,6 +5,7 @@ import time
 import hashlib
 import threading
 import ssl
+import socket
 import urllib.request
 import urllib.error
 import re as _re
@@ -274,7 +275,7 @@ class Client:
             # Budget check inside the retry loop before each dispatch attempt
             self.budget.check(self._estimate_cost(body, body["max_tokens"]))
             try:
-                kwargs = {"timeout": 60}
+                kwargs = {"timeout": 180}
                 if self._ssl_context is not None:
                     kwargs["context"] = self._ssl_context
                 with urllib.request.urlopen(req, **kwargs) as resp:
@@ -295,6 +296,20 @@ class Client:
                 # Sanitize error message: never include headers or API keys
                 raise LLMError(f"HTTP error {e.code}: {sanitize(e.reason)}")
 
+            except TimeoutError as e:
+                if not network_retried and attempt < max_retries - 1:
+                    network_retried = True
+                    time.sleep(2.0)
+                    continue
+                raise LLMError(f"Network timeout: {sanitize(str(e))}")
+
+            except socket.timeout as e:
+                if not network_retried and attempt < max_retries - 1:
+                    network_retried = True
+                    time.sleep(2.0)
+                    continue
+                raise LLMError(f"Network timeout: {sanitize(str(e))}")
+
             except urllib.error.URLError as e:
                 err_str = str(e.reason) if hasattr(e, "reason") else str(e)
                 if isinstance(getattr(e, "reason", None), ssl.SSLError) or "CERTIFICATE_VERIFY_FAILED" in err_str:
@@ -303,7 +318,7 @@ class Client:
                         ctx = ssl._create_unverified_context()
                         self._ssl_context = ctx
                         try:
-                            with urllib.request.urlopen(req, timeout=60, context=ctx) as resp:
+                            with urllib.request.urlopen(req, timeout=180, context=ctx) as resp:
                                 resp_bytes = resp.read()
                                 resp_dict = json.loads(resp_bytes.decode("utf-8"))
                                 if self.cache and self.cache.mode == "record":
