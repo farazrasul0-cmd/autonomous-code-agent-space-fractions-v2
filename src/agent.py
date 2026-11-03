@@ -907,14 +907,26 @@ def build_file_prompt(contract: dict, file_entry: dict, ledger_text: str = "", s
             prompt_lines.extend([
                 "8. GUI Architecture: Use Tkinter Frame management to support clean multi-screen navigation (Main Menu, Play Game, View Score, Update Questions, Help).",
                 "9. Screen Navigation: Implement show_menu(), show_play_game(), show_view_score(), show_update_questions(), show_help(). Each screen method clears the current screen frame and renders its widgets.",
-                "10. Game Play & State: Implement start_play_game(), submit_answer(answer_index), toggle_pause(), end_game(), update_questions(questions). Update Game state ('Playing', 'Paused', 'GameOver') and score appropriately.",
-                "11. Seed Content: Initialize with a default list of Question instances so the game is immediately playable upon launch.",
+                "10. Screen Management: To clear the screen, you MUST destroy all children of the root window, not just the current frame. Use this exact code for `_clear_screen`:",
+                "    def _clear_screen(self) -> None:",
+                "        for widget in self._root.winfo_children():",
+                "            widget.destroy()",
+                "        self._current_frame = None",
+                "    This guarantees no overlapping frames are rendered.",
+                "11. Game Play & State: Implement start_play_game(), submit_answer(answer_index), toggle_pause(), end_game(), update_questions(questions). Update Game state ('Playing', 'Paused', 'GameOver') and score appropriately.",
+                "12. Seed Content: Initialize with a default list of Question instances so the game is immediately playable upon launch.",
             ])
         else:
             prompt_lines.extend([
                 "8. GUI Architecture: Use Tkinter Frame management to support clean layout and screen/view navigation.",
-                "9. Application Methods: Implement all methods declared in the contract slice under 'app_methods'. Each method must perform the described operation, updating state and UI.",
-                "10. State & Transitions: Update instance state attributes according to contract transitions.",
+                "9. Screen Management: To clear the screen, you MUST destroy all children of the root window, not just the current frame. Use this exact code for `_clear_screen`:",
+                "    def _clear_screen(self) -> None:",
+                "        for widget in self._root.winfo_children():",
+                "            widget.destroy()",
+                "        self._current_frame = None",
+                "    This guarantees no overlapping frames are rendered.",
+                "10. Application Methods: Implement all methods declared in the contract slice under 'app_methods'. Each method must perform the described operation, updating state and UI.",
+                "11. State & Transitions: Update instance state attributes according to contract transitions.",
             ])
 
     if ledger_text.strip():
