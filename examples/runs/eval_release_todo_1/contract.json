@@ -1,0 +1,430 @@
+{
+  "files": [
+    {
+      "path": "models.py",
+      "purpose": "Domain classes Task and TaskManager",
+      "order": 1,
+      "imports": []
+    },
+    {
+      "path": "app.py",
+      "purpose": "Tkinter GUI application class App",
+      "order": 2,
+      "imports": [
+        "models"
+      ]
+    },
+    {
+      "path": "main.py",
+      "purpose": "Application entrypoint with create_app function",
+      "order": 3,
+      "imports": [
+        "app"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "Task",
+      "file": "models.py",
+      "base": null,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "string",
+          "visibility": "private"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "visibility": "private"
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "visibility": "private"
+        }
+      ],
+      "properties": [],
+      "methods": [
+        {
+          "name": "mark_completed",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "get_title",
+          "params": [
+            "self"
+          ],
+          "returns": "string",
+          "kind": "method"
+        }
+      ]
+    },
+    {
+      "name": "TaskManager",
+      "file": "models.py",
+      "base": null,
+      "attributes": [
+        {
+          "name": "tasks",
+          "type": "List<Task>",
+          "visibility": "private"
+        }
+      ],
+      "properties": [],
+      "methods": [
+        {
+          "name": "add_task",
+          "params": [
+            "self",
+            "title"
+          ],
+          "returns": "Task",
+          "kind": "method"
+        },
+        {
+          "name": "get_tasks",
+          "params": [
+            "self"
+          ],
+          "returns": "List<Task>",
+          "kind": "method"
+        },
+        {
+          "name": "complete_task",
+          "params": [
+            "self",
+            "task_id"
+          ],
+          "returns": "None",
+          "kind": "method"
+        }
+      ]
+    },
+    {
+      "name": "App",
+      "file": "app.py",
+      "base": null,
+      "attributes": [
+        {
+          "name": "root",
+          "type": "tk.Tk",
+          "visibility": "private"
+        },
+        {
+          "name": "task_manager",
+          "type": "TaskManager",
+          "visibility": "private"
+        },
+        {
+          "name": "task_listbox",
+          "type": "tk.Listbox",
+          "visibility": "private"
+        },
+        {
+          "name": "title_entry",
+          "type": "tk.Entry",
+          "visibility": "private"
+        }
+      ],
+      "properties": [],
+      "methods": [
+        {
+          "name": "__init__",
+          "params": [
+            "self",
+            "root"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "add_task",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "complete_task",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        },
+        {
+          "name": "refresh_task_list",
+          "params": [
+            "self"
+          ],
+          "returns": "None",
+          "kind": "method"
+        }
+      ]
+    }
+  ],
+  "entrypoints": [
+    {
+      "name": "create_app",
+      "signature": "create_app(root: tk.Tk) -> App",
+      "purpose": "Create and return the application instance"
+    }
+  ],
+  "app_methods": [
+    {
+      "name": "add_task",
+      "signature": "add_task() -> None",
+      "purpose": "Add a new task from the entry field"
+    },
+    {
+      "name": "complete_task",
+      "signature": "complete_task() -> None",
+      "purpose": "Mark selected task as completed"
+    },
+    {
+      "name": "refresh_task_list",
+      "signature": "refresh_task_list() -> None",
+      "purpose": "Update the listbox with current tasks"
+    }
+  ],
+  "states": [
+    {
+      "name": "Pending",
+      "owner": "Task",
+      "attribute": "state"
+    },
+    {
+      "name": "Completed",
+      "owner": "Task",
+      "attribute": "state"
+    }
+  ],
+  "transitions": [
+    {
+      "trigger": "complete",
+      "from": "Pending",
+      "to": "Completed",
+      "method": "Task.mark_completed"
+    }
+  ],
+  "smoke_steps": [
+    {
+      "call": "create_app",
+      "args": [],
+      "purpose": "Smoke test app creation"
+    },
+    {
+      "call": "add_task",
+      "args": [],
+      "purpose": "Smoke test adding a task"
+    },
+    {
+      "call": "complete_task",
+      "args": [],
+      "purpose": "Smoke test completing a task"
+    },
+    {
+      "call": "refresh_task_list",
+      "args": [],
+      "purpose": "Smoke test refreshing task list"
+    }
+  ],
+  "traceability": [
+    {
+      "diagram_element": "ClassDiagram.Task",
+      "code_symbol": "Task"
+    },
+    {
+      "diagram_element": "ClassDiagram.TaskManager",
+      "code_symbol": "TaskManager"
+    },
+    {
+      "diagram_element": "UseCase.Add Task",
+      "code_symbol": "App.add_task"
+    },
+    {
+      "diagram_element": "UseCase.View Tasks",
+      "code_symbol": "App.refresh_task_list"
+    },
+    {
+      "diagram_element": "UseCase.Complete Task",
+      "code_symbol": "App.complete_task"
+    },
+    {
+      "diagram_element": "State.Pending",
+      "code_symbol": "Task.state"
+    },
+    {
+      "diagram_element": "State.Completed",
+      "code_symbol": "Task.state"
+    },
+    {
+      "diagram_element": "Transition.Pending->Completed",
+      "code_symbol": "Task.mark_completed"
+    }
+  ],
+  "forbidden_names": [
+    "after",
+    "after_cancel",
+    "after_idle",
+    "anchor",
+    "bbox",
+    "bell",
+    "bind",
+    "bind_all",
+    "bind_class",
+    "bindtags",
+    "cget",
+    "clipboard_append",
+    "clipboard_clear",
+    "clipboard_get",
+    "columnconfigure",
+    "config",
+    "configure",
+    "deletecommand",
+    "destroy",
+    "event_add",
+    "event_delete",
+    "event_generate",
+    "event_info",
+    "focus",
+    "focus_displayof",
+    "focus_force",
+    "focus_get",
+    "focus_lastfor",
+    "focus_set",
+    "forget",
+    "getboolean",
+    "getdouble",
+    "getint",
+    "getvar",
+    "grab_current",
+    "grab_release",
+    "grab_set",
+    "grab_set_global",
+    "grab_status",
+    "grid",
+    "grid_anchor",
+    "grid_bbox",
+    "grid_columnconfigure",
+    "grid_configure",
+    "grid_forget",
+    "grid_info",
+    "grid_location",
+    "grid_propagate",
+    "grid_remove",
+    "grid_rowconfigure",
+    "grid_size",
+    "grid_slaves",
+    "image_names",
+    "image_types",
+    "info",
+    "info_patchlevel",
+    "keys",
+    "lift",
+    "location",
+    "lower",
+    "mainloop",
+    "nametowidget",
+    "option_add",
+    "option_clear",
+    "option_get",
+    "option_readfile",
+    "pack",
+    "pack_configure",
+    "pack_forget",
+    "pack_info",
+    "pack_propagate",
+    "pack_slaves",
+    "place",
+    "place_configure",
+    "place_forget",
+    "place_info",
+    "place_slaves",
+    "propagate",
+    "quit",
+    "register",
+    "rowconfigure",
+    "selection_clear",
+    "selection_get",
+    "selection_handle",
+    "selection_own",
+    "selection_own_get",
+    "send",
+    "setvar",
+    "size",
+    "slaves",
+    "tk_bisque",
+    "tk_focusFollowsMouse",
+    "tk_focusNext",
+    "tk_focusPrev",
+    "tk_setPalette",
+    "tk_strictMotif",
+    "tkraise",
+    "unbind",
+    "unbind_all",
+    "unbind_class",
+    "update",
+    "update_idletasks",
+    "wait_variable",
+    "wait_visibility",
+    "wait_window",
+    "waitvar",
+    "winfo_atom",
+    "winfo_atomname",
+    "winfo_cells",
+    "winfo_children",
+    "winfo_class",
+    "winfo_colormapfull",
+    "winfo_containing",
+    "winfo_depth",
+    "winfo_exists",
+    "winfo_fpixels",
+    "winfo_geometry",
+    "winfo_height",
+    "winfo_id",
+    "winfo_interps",
+    "winfo_ismapped",
+    "winfo_manager",
+    "winfo_name",
+    "winfo_parent",
+    "winfo_pathname",
+    "winfo_pixels",
+    "winfo_pointerx",
+    "winfo_pointerxy",
+    "winfo_pointery",
+    "winfo_reqheight",
+    "winfo_reqwidth",
+    "winfo_rgb",
+    "winfo_rootx",
+    "winfo_rooty",
+    "winfo_screen",
+    "winfo_screencells",
+    "winfo_screendepth",
+    "winfo_screenheight",
+    "winfo_screenmmheight",
+    "winfo_screenmmwidth",
+    "winfo_screenvisual",
+    "winfo_screenwidth",
+    "winfo_server",
+    "winfo_toplevel",
+    "winfo_viewable",
+    "winfo_visual",
+    "winfo_visualid",
+    "winfo_visualsavailable",
+    "winfo_vrootheight",
+    "winfo_vrootwidth",
+    "winfo_vrootx",
+    "winfo_vrooty",
+    "winfo_width",
+    "winfo_x",
+    "winfo_y"
+  ]
+}
