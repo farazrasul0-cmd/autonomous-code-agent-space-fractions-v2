@@ -8,8 +8,8 @@ Official standalone binary release of the DeepSeek Code Agent for Task 1 evaluat
 
 | Artifact | Distribution Type | SHA256 Checksum | Description |
 |:---|:---:|:---:|:---|
-| **`CodeAgent_onedir.zip`** | **Primary (Recommended)** | `00A2822032AEDA85A4B3A357B6BEB5DC6C0F3E107EC9455E93DE6C70C51E9DBA` | Complete unpacked folder bundle (`CodeAgent.exe` + `_internal/` runtime). Fastest startup, fully compatible with Windows Sandbox. |
-| **`CodeAgentOneFile.exe`** | Secondary (Single-file) | `75AE4ABC4730D7021FB72E08AE1ACE74EAECAD027C5934BF13882DB83BF5C3B4` | Standalone portable executable unpacking dynamically into `%TEMP%`. |
+| **`CodeAgent_onedir.zip`** | **Primary (Recommended)** | `91718B92AFCDDD735B8F52EC5728FB6FD148E92379E19DD37EC565A052E2FC46` | Complete unpacked folder bundle (`CodeAgent.exe` + `_internal/` runtime). Fastest startup, fully compatible with Windows Sandbox. |
+| **`CodeAgentOneFile.exe`** | Secondary (Single-file) | `5DED751EADD24299B40C36823CC9F0F0A1B1F6F278A46CE6E1F3A5F2CBE5D3FC` | Standalone portable executable unpacking dynamically into `%TEMP%`. |
 | **`CodeAgent.exe`** (internal) | Binary Executable | `00A2822032AEDA85A4B3A357B6BEB5DC6C0F3E107EC9455E93DE6C70C51E9DBA` | Unpacked executable entrypoint within the onedir bundle. |
 
 ---
