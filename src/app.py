@@ -704,7 +704,7 @@ class App(tk.Tk):
                         contract=contract,
                         spec=spec,
                         run_dir=run_dir,
-                        max_rounds=3,
+                        max_rounds=5,
                         log_file=log_file,
                         initial_verif=initial_verif
                     )

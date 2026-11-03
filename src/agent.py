@@ -1135,28 +1135,10 @@ def generate_test_file(
     
     for c in domain_classes:
         cname = c["name"]
-        attrs = c.get("attributes", [])
-        args = []
-        # Build safe literal arguments for the constructor based on types
-        for a in attrs:
-            aname = a.get("name") if isinstance(a, dict) else a
-            atype = a.get("type") if isinstance(a, dict) else "str"
-            
-            if aname == "id" or "str" in atype:
-                args.append('"test"')
-            elif "int" in atype:
-                args.append("0")
-            elif "List" in atype:
-                args.append("[]")
-            elif "float" in atype:
-                args.append("0.0")
-            else:
-                args.append("None")
-                
-        # Create a simple test that just instantiates the object
+        # Create a simple test that instantiates the object using dynamic signature inspection
         test_lines.append(f"""
     def test_{cname.lower()}_initialization(self):
-        obj = {cname}({", ".join(args)})
+        obj = make({cname})
         self.assertIsNotNone(obj)""")
 
     # Fallback if no domain classes found
@@ -1166,15 +1148,42 @@ def generate_test_file(
         self.assertTrue(True)""")
 
     # Construct the file
+    imports_str = ", ".join([c["name"] for c in domain_classes])
+    import_stmt = f"from models import {imports_str}" if imports_str else "pass"
+
     test_code = f"""import unittest
 import sys
+import inspect
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 try:
-    from models import {", ".join([c["name"] for c in domain_classes])}
+    {import_stmt}
 except ImportError:
     pass
+
+def make(cls):
+    args = []
+    for n, p in list(inspect.signature(cls.__init__).parameters.items())[1:]:
+        if p.default is not p.empty or p.kind in (
+            p.VAR_POSITIONAL,
+            p.VAR_KEYWORD,
+        ):
+            continue
+        a = str(p.annotation).lower()
+        if "int" in a:
+            args.append(0)
+        elif "float" in a:
+            args.append(0.0)
+        elif "list" in a:
+            args.append([])
+        elif "bool" in a:
+            args.append(False)
+        elif "str" in a or n in ("id", "name", "username", "prompt", "title"):
+            args.append("test")
+        else:
+            args.append(None)
+    return cls(*args)
 
 class TestDomainModels(unittest.TestCase):
 {''.join(test_lines)}
@@ -1409,7 +1418,7 @@ def repair_project(
     contract: dict,
     spec: dict,
     run_dir: str | Path,
-    max_rounds: int = 3,
+    max_rounds: int = 5,
     log_file: str | Path = None,
     initial_verif: dict = None
 ) -> dict:
@@ -1968,7 +1977,7 @@ def cli(doc_path: str, view_path: str, output_root: str, api_key: str = None, ca
             contract=contract,
             spec=spec,
             run_dir=run_dir,
-            max_rounds=3,
+            max_rounds=5,
             log_file=log_file,
             initial_verif=initial_verif
         )
@@ -2006,8 +2015,6 @@ def cli(doc_path: str, view_path: str, output_root: str, api_key: str = None, ca
     print(f"\nCLI Run Completed: {run_dir.name}")
     print(f"Total Run Cost: ${total_run_cost:.6f} | Cumulative: ${budget.total_spent:.6f}")
     print(f"Run Report written to: {report_path}")
-    return result
-
     return result
 
 
