@@ -3,6 +3,7 @@ import os
 import sys
 import json
 import unittest
+import subprocess
 from pathlib import Path
 
 # Ensure repo root is importable
@@ -273,6 +274,67 @@ class TestVerify(unittest.TestCase):
         with unittest.mock.patch("src.verify.run_harness", return_value={"status": "skipped", "reason": "Sandbox Timeout"}):
             errors = check_v8_harness(Path("dummy"), {})
             self.assertEqual(errors, [])
+
+    def test_v7_missing_or_empty_tests_dir(self):
+        """V7 strictly fails when tests/ directory is missing or has no test_*.py files."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            # Missing tests/ directory
+            res = check_v7_test_execution(td)
+            self.assertEqual(len(res), 1)
+            self.assertEqual(res[0]["check"], "V7")
+            self.assertEqual(res[0]["message"], "Missing or empty tests/ directory")
+
+            # Empty tests/ directory (no test_*.py)
+            (Path(td) / "tests").mkdir()
+            (Path(td) / "tests" / "__init__.py").write_text("", encoding="utf-8")
+            res2 = check_v7_test_execution(td)
+            self.assertEqual(len(res2), 1)
+            self.assertEqual(res2[0]["check"], "V7")
+            self.assertEqual(res2[0]["message"], "Missing or empty tests/ directory")
+
+    def test_v7_scrubbed_environment(self):
+        """V7 passes a scrubbed environment without DEEPSEEK_API_KEY to subprocess."""
+        import tempfile
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as td:
+            tests_dir = Path(td) / "tests"
+            tests_dir.mkdir()
+            (tests_dir / "test_dummy.py").write_text("import unittest\n", encoding="utf-8")
+
+            with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "secret-audit-key", "SAFE_VAR": "safe"}):
+                with patch("subprocess.run") as mock_run:
+                    mock_proc = unittest.mock.MagicMock()
+                    mock_proc.returncode = 0
+                    mock_run.return_value = mock_proc
+                    check_v7_test_execution(td)
+                    self.assertTrue(mock_run.called)
+                    call_env = mock_run.call_args.kwargs.get("env")
+                    self.assertIsNotNone(call_env)
+                    self.assertNotIn("DEEPSEEK_API_KEY", call_env)
+                    self.assertIn("SAFE_VAR", call_env)
+
+    def test_harness_strict_failure_on_timeout_or_crash(self):
+        """Harness returns status: fail when subprocess times out or crashes (no in-process fallback)."""
+        from src.harness import run_harness
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            (Path(td) / "main.py").write_text("def create_app(root): return None\n", encoding="utf-8")
+            # Timeout scenario
+            with unittest.mock.patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="test", timeout=1)):
+                res = run_harness(td, {}, timeout=1)
+                self.assertEqual(res["status"], "fail")
+                self.assertIn("timed out", res["error"])
+
+            # Crash scenario
+            mock_proc = unittest.mock.MagicMock()
+            mock_proc.returncode = 1
+            mock_proc.stderr = "Fatal crash"
+            mock_proc.stdout = ""
+            with unittest.mock.patch("subprocess.run", return_value=mock_proc):
+                res = run_harness(td, {})
+                self.assertEqual(res["status"], "fail")
+                self.assertIn("terminated without result file", res["error"])
 
 
 if __name__ == "__main__":

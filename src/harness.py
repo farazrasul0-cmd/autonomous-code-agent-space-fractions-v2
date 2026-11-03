@@ -212,7 +212,6 @@ def run_harness(run_dir: str | Path, contract: dict, timeout: int = 35) -> dict:
                 timeout=timeout,
                 creationflags=creationflags,
                 startupinfo=startupinfo,
-                env=os.environ.copy(),
                 close_fds=True
             )
         except subprocess.TimeoutExpired:
@@ -227,26 +226,13 @@ def run_harness(run_dir: str | Path, contract: dict, timeout: int = 35) -> dict:
             except Exception as e:
                 return {"status": "fail", "error": f"Failed reading harness output: {e}"}
 
-        # Subprocess timed out, crashed, or was blocked in sandbox -> try in-process fallback
-        in_proc = _run_harness_in_process(run_dir, contract)
-        if in_proc.get("status") in ("pass", "skipped"):
-            return in_proc
-
         if timed_out:
             return {
-                "status": "skipped",
-                "reason": "Sandbox Timeout",
+                "status": "fail",
                 "error": f"UI harness timed out after {timeout} seconds (watchdog triggered)"
             }
 
         err_msg = (proc.stderr if proc else "") or (proc.stdout if proc else "") or str(proc_exc or "")
-        if "embedded python interpreter" in err_msg.lower() or (proc and proc.returncode != 0):
-            return {
-                "status": "skipped",
-                "reason": "Sandbox Subprocess Blocked",
-                "error": f"UI harness subprocess blocked ({err_msg[:200]}), marked SKIPPED"
-            }
-
         return {
             "status": "fail",
             "error": f"Harness worker terminated without result file: {err_msg[:400]}"

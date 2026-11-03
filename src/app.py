@@ -567,7 +567,7 @@ class App(tk.Tk):
                 })
 
             budget = Budget(run_cap=0.15, total_cap=0.85, spent=0.0, total_spent=curr_cum)
-            cache_dir = Path(tempfile.gettempdir()) / "CodeAgent_cache"
+            cache_dir = Path(os.getcwd()) / ".cache"
             cache = Cache(cache_dir=str(cache_dir), mode="live")
             client = Client(api_key=api_key, budget=budget, cache=cache, allow_unverified_tls=allow_tls)
             run_spent = 0.0
@@ -764,8 +764,7 @@ class App(tk.Tk):
                     for err in remaining_errors
                 )
 
-            # If V1-V6 passed, allow launch even if V7/V8 failed, because the static code is valid.
-            can_launch = (success or v1_v6_passed) and bool(main_py and main_py.exists())
+            can_launch = success and bool(main_py and main_py.exists())
             self.queue.put({
                 "type": "done",
                 "success": success,

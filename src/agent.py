@@ -1917,7 +1917,7 @@ def cli(doc_path: str, view_path: str, output_root: str, api_key: str = None, ca
     # 3. Setup Budget, Cache, and Client
     curr_cumulative = get_current_cumulative_spend(repo_root / "examples" / "runs")
     budget = Budget(run_cap=0.15, total_cap=0.85, spent=0.0, total_spent=curr_cumulative)
-    cache_dir = Path(tempfile.gettempdir()) / "CodeAgent_cache"
+    cache_dir = Path(os.getcwd()) / ".cache"
     cache = Cache(cache_dir=str(cache_dir), mode="record" if cache_mode == "live" else "replay")
     client = Client(api_key=api_key, budget=budget, cache=cache)
 

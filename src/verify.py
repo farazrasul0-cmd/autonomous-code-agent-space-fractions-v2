@@ -600,8 +600,8 @@ def check_v7_test_execution(run_dir: str | Path, timeout: int = 60) -> list[dict
     """V7: Run unit tests via unittest discover and return structured failure reports."""
     run_dir = Path(run_dir).resolve()
     tests_dir = run_dir / "tests"
-    if not tests_dir.exists():
-        return []
+    if not tests_dir.exists() or not any(tests_dir.glob("test_*.py")):
+        return [{"check": "V7", "file": "tests", "line": 0, "message": "Missing or empty tests/ directory"}]
 
     # If frozen, completely bypass subprocess to prevent PyInstaller embedded interpreter crash
     if getattr(sys, "frozen", False):
@@ -635,6 +635,8 @@ def check_v7_test_execution(run_dir: str | Path, timeout: int = 60) -> list[dict
     proc_exc = None
     timed_out = False
 
+    scrubbed_env = {k: v for k, v in os.environ.items() if "DEEPSEEK" not in k and "API_KEY" not in k}
+
     try:
         proc = subprocess.run(
             cmd,
@@ -645,7 +647,7 @@ def check_v7_test_execution(run_dir: str | Path, timeout: int = 60) -> list[dict
             timeout=timeout,
             creationflags=creationflags,
             startupinfo=startupinfo,
-            env=os.environ.copy(),
+            env=scrubbed_env,
             close_fds=True
         )
     except subprocess.TimeoutExpired:
