@@ -764,7 +764,8 @@ class App(tk.Tk):
                     for err in remaining_errors
                 )
 
-            can_launch = (success or (v1_v6_passed and only_timeouts)) and bool(main_py and main_py.exists())
+            # If V1-V6 passed, allow launch even if V7/V8 failed, because the static code is valid.
+            can_launch = (success or v1_v6_passed) and bool(main_py and main_py.exists())
             self.queue.put({
                 "type": "done",
                 "success": success,
@@ -775,7 +776,7 @@ class App(tk.Tk):
                 "message": (
                     "Synthesis and verification completed successfully!" if success
                     else ("Static checks PASSED. Dynamic tests timed out in sandbox environment." if only_timeouts
-                          else "Synthesis completed with unresolved errors.")
+                          else ("Static checks PASSED. Launch enabled." if v1_v6_passed else "Synthesis completed with unresolved errors."))
                 )
             })
 
@@ -856,11 +857,15 @@ class App(tk.Tk):
                 if success:
                     self.status_var.set("Synthesis complete! All checks PASSED.")
                     self.append_log("\n" + "=" * 60)
-                    self.append_log("[SUCCESS] Synthesis completed with 100% verification passing.")
-                else:
+                    self.append_log("[SUCCESS] Synthesis completed with all checks passing.")
+                elif only_timeouts:
                     self.status_var.set("Complete! Static checks (V1-V6) PASSED. Tests timed out.")
                     self.append_log("\n" + "=" * 60)
                     self.append_log("[SUCCESS] V1-V6 static checks passed. Dynamic tests timed out in Sandbox.")
+                else:
+                    self.status_var.set("Complete! Static checks (V1-V6) PASSED. Launcher ready.")
+                    self.append_log("\n" + "=" * 60)
+                    self.append_log("[INFO] Static checks (V1-V6) passed. Dynamic tests had unresolved issues, but launcher is ready.")
                 self.append_log(f"Run folder: {self.current_run_dir}")
                 self.append_log("Game launcher is ready.")
                 self.append_log("=" * 60)

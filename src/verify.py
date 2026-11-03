@@ -5,9 +5,12 @@ import sys
 import ast
 import io
 import json
+import shutil
 import inspect
 import tkinter
+import tempfile
 import threading
+import traceback
 import unittest
 import py_compile
 import subprocess
@@ -473,88 +476,124 @@ def check_v5_tk_collisions(run_dir: str | Path) -> list[dict]:
 
 
 def _run_v7_in_process(run_dir: Path, tests_dir: Path, timeout: int = 25) -> list[dict]:
-    """Run unit tests in-process using unittest.TextTestRunner in a separate thread."""
+    """Run unit tests in-process using unittest.TextTestRunner in a separate thread.
+    Copies run_dir to a clean temporary directory to prevent issues with spaces in directory paths."""
     run_dir = Path(run_dir).resolve()
-    tests_dir = Path(tests_dir).resolve()
-    run_dir_str = str(run_dir)
-    sys_path_added = False
-    if run_dir_str not in sys.path:
-        sys.path.insert(0, run_dir_str)
-        sys_path_added = True
-
-    # Evict project modules from previous runs to prevent stale module caching
-    for name in ["models", "engine", "ui", "app", "main"]:
-        if name in sys.modules:
-            del sys.modules[name]
-
-    init_file = tests_dir / "__init__.py"
-    created_temp_init = False
-    if not init_file.exists():
+    temp_dir = tempfile.mkdtemp(prefix="v7_test_")
+    if sys.platform == "win32":
         try:
-            init_file.touch()
-            created_temp_init = True
+            import ctypes
+            buf = ctypes.create_unicode_buffer(500)
+            if ctypes.windll.kernel32.GetShortPathNameW(temp_dir, buf, len(buf)):
+                temp_dir = buf.value
         except Exception:
             pass
 
-    result_holder = {}
-
-    def worker():
-        try:
-            stream = io.StringIO()
-            loader = unittest.TestLoader()
-            suite = loader.discover(start_dir=str(tests_dir), top_level_dir=run_dir_str)
-            runner = unittest.TextTestRunner(stream=stream, verbosity=2)
-            res = runner.run(suite)
-            result_holder["was_successful"] = res.wasSuccessful()
-            result_holder["errors"] = res.errors
-            result_holder["failures"] = res.failures
-            result_holder["output"] = stream.getvalue()
-        except Exception as exc:
-            result_holder["exception"] = exc
+    temp_run_dir = Path(temp_dir).resolve()
+    temp_run_dir_str = str(temp_run_dir)
+    sys_path_added = False
 
     try:
-        t = threading.Thread(target=worker, daemon=True)
-        t.start()
-        t.join(timeout=timeout)
-    finally:
-        if created_temp_init and init_file.exists():
+        shutil.copytree(str(run_dir), str(temp_run_dir), dirs_exist_ok=True)
+        temp_tests_dir = temp_run_dir / "tests"
+        if not temp_tests_dir.exists():
+            return []
+
+        init_file = temp_tests_dir / "__init__.py"
+        if not init_file.exists():
             try:
-                init_file.unlink()
+                init_file.touch()
             except Exception:
                 pass
 
-    if sys_path_added and run_dir_str in sys.path:
+        if temp_run_dir_str not in sys.path:
+            sys.path.insert(0, temp_run_dir_str)
+            sys_path_added = True
+
+        # Evict project modules from previous runs to prevent stale module caching
+        for name in list(sys.modules.keys()):
+            if name in ["models", "engine", "ui", "app", "main", "tests"] or name.startswith("tests."):
+                try:
+                    del sys.modules[name]
+                except Exception:
+                    pass
+
+        result_holder = {}
+
+        def worker():
+            try:
+                stream = io.StringIO()
+                loader = unittest.TestLoader()
+                suite = loader.discover(start_dir=str(temp_tests_dir), top_level_dir=temp_run_dir_str)
+                runner = unittest.TextTestRunner(stream=stream, verbosity=2)
+                res = runner.run(suite)
+                result_holder["was_successful"] = res.wasSuccessful()
+                result_holder["errors"] = res.errors
+                result_holder["failures"] = res.failures
+                result_holder["output"] = stream.getvalue()
+            except Exception:
+                result_holder["exception"] = traceback.format_exc()
+
+        t = threading.Thread(target=worker, daemon=True)
+        t.start()
+        t.join(timeout=timeout)
+
+        if t.is_alive():
+            return [{
+                "check": "V7",
+                "file": "tests",
+                "line": 0,
+                "message": f"Unit test suite in-process execution timed out after {timeout} seconds"
+            }]
+
+        if "exception" in result_holder:
+            return [{
+                "check": "V7",
+                "file": "tests",
+                "line": 0,
+                "message": f"In-process unit test execution failed with exception:\n{result_holder['exception']}"
+            }]
+
+        if result_holder.get("was_successful", False):
+            return []
+
+        details = []
+        for test, err in result_holder.get("errors", []):
+            details.append(f"ERROR: {test}\n{err}")
+        for test, fail in result_holder.get("failures", []):
+            details.append(f"FAILURE: {test}\n{fail}")
+
+        combined_err = "\n\n".join(details)
+        output = result_holder.get("output", "")
+        if combined_err:
+            full_msg = f"Unit tests failed:\n{combined_err}\n\nRunner output:\n{output}"
+        else:
+            full_msg = f"Unit tests failed:\n{output}"
+
+        return [{
+            "check": "V7",
+            "file": "tests",
+            "line": 0,
+            "message": full_msg[:4000]
+        }]
+    finally:
+        if sys_path_added and temp_run_dir_str in sys.path:
+            try:
+                sys.path.remove(temp_run_dir_str)
+            except Exception:
+                pass
+
+        for name in list(sys.modules.keys()):
+            if name in ["models", "engine", "ui", "app", "main", "tests"] or name.startswith("tests."):
+                try:
+                    del sys.modules[name]
+                except Exception:
+                    pass
+
         try:
-            sys.path.remove(run_dir_str)
+            shutil.rmtree(temp_dir, ignore_errors=True)
         except Exception:
             pass
-
-    if t.is_alive():
-        return [{
-            "check": "V7",
-            "file": "tests",
-            "line": 0,
-            "message": f"Unit test suite in-process execution timed out after {timeout} seconds"
-        }]
-
-    if "exception" in result_holder:
-        return [{
-            "check": "V7",
-            "file": "tests",
-            "line": 0,
-            "message": f"In-process unit test execution failed: {result_holder['exception']}"
-        }]
-
-    if result_holder.get("was_successful", False):
-        return []
-
-    output = result_holder.get("output", "")
-    return [{
-        "check": "V7",
-        "file": "tests",
-        "line": 0,
-        "message": f"Unit tests failed:\n{output[:500]}"
-    }]
 
 
 def check_v7_test_execution(run_dir: str | Path, timeout: int = 60) -> list[dict]:
@@ -651,7 +690,7 @@ def check_v7_test_execution(run_dir: str | Path, timeout: int = 60) -> list[dict
         "check": "V7",
         "file": "tests",
         "line": 0,
-        "message": f"Unit tests failed (exit code {proc.returncode}):\n{stderr[:500]}"
+        "message": f"Unit tests failed (exit code {proc.returncode}):\n{stderr[:4000]}"
     }]
 
 

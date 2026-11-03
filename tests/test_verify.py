@@ -228,6 +228,46 @@ class TestVerify(unittest.TestCase):
             errors = _run_v7_in_process(temp_run_dir, tests_dir)
             self.assertEqual(errors, [])
 
+    def test_v7_in_process_with_spaces_in_path(self):
+        """V7 in-process handles directory paths containing spaces without choking."""
+        from src.verify import _run_v7_in_process
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp_dir:
+            spaced_dir = Path(temp_dir) / "run dir with spaces"
+            spaced_dir.mkdir()
+            tests_dir = spaced_dir / "tests"
+            tests_dir.mkdir()
+            (tests_dir / "__init__.py").write_text("", encoding="utf-8")
+            (tests_dir / "test_sample.py").write_text(
+                "import unittest\n"
+                "class SampleTest(unittest.TestCase):\n"
+                "    def test_pass(self):\n"
+                "        self.assertTrue(True)\n",
+                encoding="utf-8"
+            )
+            errors = _run_v7_in_process(spaced_dir, tests_dir)
+            self.assertEqual(errors, [])
+
+    def test_v7_in_process_failure_contains_traceback(self):
+        """V7 in-process captures full failure traceback for failing tests."""
+        from src.verify import _run_v7_in_process
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_run_dir = Path(temp_dir)
+            tests_dir = temp_run_dir / "tests"
+            tests_dir.mkdir()
+            (tests_dir / "__init__.py").write_text("", encoding="utf-8")
+            (tests_dir / "test_sample.py").write_text(
+                "import unittest\n"
+                "class FailingTest(unittest.TestCase):\n"
+                "    def test_fail(self):\n"
+                "        self.assertEqual(1, 2, 'intentional assertion failure')\n",
+                encoding="utf-8"
+            )
+            errors = _run_v7_in_process(temp_run_dir, tests_dir)
+            self.assertEqual(len(errors), 1)
+            self.assertIn("intentional assertion failure", errors[0]["message"])
+
     def test_v8_harness_skipped_returns_no_errors(self):
         """V8 check returns 0 errors when harness returns skipped status."""
         with unittest.mock.patch("src.verify.run_harness", return_value={"status": "skipped", "reason": "Sandbox Timeout"}):

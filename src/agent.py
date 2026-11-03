@@ -1445,6 +1445,9 @@ def repair_project(
         f = err.get("file")
         if f and f not in ("tests", "harness") and (run_dir / f).exists():
             failing_files.add(f)
+        elif f == "tests":
+            for tf in (run_dir / "tests").glob("test_*.py"):
+                failing_files.add(str(tf.relative_to(run_dir)).replace("\\", "/"))
 
     file_contents = {}
     for f in failing_files:
@@ -1475,6 +1478,11 @@ def repair_project(
         "Please investigate and fix the failing file(s). Use `write_file` to write the complete corrected content.",
         "Note: In __init__, use standard Python assignment syntax (`self.attr = value`) without type annotations on instance attributes."
     ])
+
+    if any(("_FailedTest" in str(err.get("message", "")) or "ImportError" in str(err.get("message", ""))) for err in initial_verif.get("errors", [])):
+        user_prompt_lines.append(
+            "The test suite failed to load. This means there is an import error or syntax error in `tests/test_game.py`. Read `tests/test_game.py`, check the imports and syntax, and use `write_file` to fix it."
+        )
 
     messages = [
         {"role": "system", "content": system_prompt},
@@ -1577,12 +1585,16 @@ def repair_project(
             break
         else:
             if round_num < max_rounds:
-                next_prompt = (
-                    f"Round {round_num} modifications did not resolve all issues.\n"
-                    f"Remaining errors:\n{json.dumps(current_verif['errors'], indent=2)}\n"
+                next_prompt_lines = [
+                    f"Round {round_num} modifications did not resolve all issues.",
+                    f"Remaining errors:\n{json.dumps(current_verif['errors'], indent=2)}",
                     "Please fix the remaining errors using write_file."
-                )
-                messages.append({"role": "user", "content": next_prompt})
+                ]
+                if any(("_FailedTest" in str(e.get("message", "")) or "ImportError" in str(e.get("message", ""))) for e in current_verif.get("errors", [])):
+                    next_prompt_lines.append(
+                        "The test suite failed to load. This means there is an import error or syntax error in `tests/test_game.py`. Read `tests/test_game.py`, check the imports and syntax, and use `write_file` to fix it."
+                    )
+                messages.append({"role": "user", "content": "\n".join(next_prompt_lines)})
 
     return {
         "all_passed": current_verif["all_passed"],

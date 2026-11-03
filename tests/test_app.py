@@ -127,6 +127,23 @@ class TestApp(unittest.TestCase):
         finally:
             app.destroy()
 
+    def test_launch_game_enabled_on_v7_fail_when_v1_v6_pass(self):
+        """Verify launch game button is enabled when V1-V6 pass even if V7 fails."""
+        app = create_app(headless=True)
+        try:
+            app._handle_event({
+                "type": "done",
+                "success": False,
+                "can_launch": True,
+                "only_timeouts": False,
+                "run_dir": str(repo_root / "examples" / "runs"),
+                "main_py": str(repo_root / "examples" / "contract.json")
+            })
+            self.assertEqual(app.launch_game_btn.cget("state"), "normal")
+            self.assertIn("Static checks (V1-V6) PASSED", app.status_var.get())
+        finally:
+            app.destroy()
+
     def test_app_cancel_event_sets_flag(self):
         """Verify cancel button sets the cancellation event."""
         app = create_app(headless=True)
