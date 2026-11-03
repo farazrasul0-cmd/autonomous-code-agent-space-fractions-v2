@@ -212,8 +212,7 @@ class TestVerify(unittest.TestCase):
             self.assertEqual(errors, [], f"V4 unexpectedly flagged annotated assignments: {errors}")
 
     def test_v7_in_process_fallback(self):
-        """V7 in-process fallback runs unit tests in-process and reports success."""
-        from src.verify import _run_v7_in_process
+        """V7 in-process fallback runs unit tests in-process and reports success with env scrub."""
         import tempfile
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_run_dir = Path(temp_dir)
@@ -221,18 +220,21 @@ class TestVerify(unittest.TestCase):
             tests_dir.mkdir()
             (tests_dir / "__init__.py").write_text("", encoding="utf-8")
             (tests_dir / "test_sample.py").write_text(
-                "import unittest\n"
+                "import os, unittest\n"
                 "class SampleTest(unittest.TestCase):\n"
                 "    def test_pass(self):\n"
+                "        self.assertNotIn('DEEPSEEK_API_KEY', os.environ)\n"
                 "        self.assertTrue(True)\n",
                 encoding="utf-8"
             )
-            errors = _run_v7_in_process(temp_run_dir, tests_dir)
-            self.assertEqual(errors, [])
+            with unittest.mock.patch.object(sys, "frozen", True, create=True):
+                with unittest.mock.patch.dict(os.environ, {"DEEPSEEK_API_KEY": "secret-frozen-key"}):
+                    errors = check_v7_test_execution(temp_run_dir)
+                    self.assertEqual(errors, [])
+                    self.assertEqual(os.environ.get("DEEPSEEK_API_KEY"), "secret-frozen-key")
 
     def test_v7_in_process_with_spaces_in_path(self):
         """V7 in-process handles directory paths containing spaces without choking."""
-        from src.verify import _run_v7_in_process
         import tempfile
         with tempfile.TemporaryDirectory() as temp_dir:
             spaced_dir = Path(temp_dir) / "run dir with spaces"
@@ -247,12 +249,12 @@ class TestVerify(unittest.TestCase):
                 "        self.assertTrue(True)\n",
                 encoding="utf-8"
             )
-            errors = _run_v7_in_process(spaced_dir, tests_dir)
-            self.assertEqual(errors, [])
+            with unittest.mock.patch.object(sys, "frozen", True, create=True):
+                errors = check_v7_test_execution(spaced_dir)
+                self.assertEqual(errors, [])
 
     def test_v7_in_process_failure_contains_traceback(self):
         """V7 in-process captures full failure traceback for failing tests."""
-        from src.verify import _run_v7_in_process
         import tempfile
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_run_dir = Path(temp_dir)
@@ -266,9 +268,10 @@ class TestVerify(unittest.TestCase):
                 "        self.assertEqual(1, 2, 'intentional assertion failure')\n",
                 encoding="utf-8"
             )
-            errors = _run_v7_in_process(temp_run_dir, tests_dir)
-            self.assertEqual(len(errors), 1)
-            self.assertIn("intentional assertion failure", errors[0]["message"])
+            with unittest.mock.patch.object(sys, "frozen", True, create=True):
+                errors = check_v7_test_execution(temp_run_dir)
+                self.assertEqual(len(errors), 1)
+                self.assertIn("intentional assertion failure", errors[0]["message"])
 
     def test_v8_harness_skipped_rejected(self):
         """V8 check strictly rejects skipped status with check error."""

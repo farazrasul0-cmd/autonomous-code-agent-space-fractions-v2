@@ -603,6 +603,19 @@ def check_v7_test_execution(run_dir: str | Path, timeout: int = 60) -> list[dict
     if not tests_dir.exists() or not any(tests_dir.glob("test_*.py")):
         return [{"check": "V7", "file": "tests", "line": 0, "message": "Missing or empty tests/ directory"}]
 
+    # PyInstaller cannot spawn subprocesses on Windows. Run in-process, but scrub env first.
+    if getattr(sys, "frozen", False):
+        original_env = os.environ.copy()
+        allowed = {"PATH", "SYSTEMROOT", "TEMP", "TMP", "WINDIR", "COMSPEC", "PATHEXT"}
+        for k in list(os.environ.keys()):
+            if k.upper() not in allowed:
+                del os.environ[k]
+        try:
+            return _run_v7_in_process(run_dir, tests_dir, timeout=timeout)
+        finally:
+            os.environ.clear()
+            os.environ.update(original_env)
+
     # Ensure tests/__init__.py exists so unittest discover can import start_dir cleanly
     init_file = tests_dir / "__init__.py"
     created_temp_init = False
@@ -631,7 +644,7 @@ def check_v7_test_execution(run_dir: str | Path, timeout: int = 60) -> list[dict
     proc_exc = None
     timed_out = False
 
-    allowed = {"PATH", "SYSTEMROOT", "TEMP", "TMP", "WINDIR", "COMSPEC", "PATHEXT", "PYTHONPATH"}
+    allowed = {"PATH", "SYSTEMROOT", "TEMP", "TMP", "WINDIR", "COMSPEC", "PATHEXT"}
     scrubbed_env = {k: v for k, v in os.environ.items() if k.upper() in allowed}
 
     try:

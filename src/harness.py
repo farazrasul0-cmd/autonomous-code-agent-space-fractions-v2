@@ -131,7 +131,7 @@ def run_harness(run_dir: str | Path, contract: dict, timeout: int = 35) -> dict:
         proc_exc = None
         timed_out = False
 
-        allowed = {"PATH", "SYSTEMROOT", "TEMP", "TMP", "WINDIR", "COMSPEC", "PATHEXT", "PYTHONPATH"}
+        allowed = {"PATH", "SYSTEMROOT", "TEMP", "TMP", "WINDIR", "COMSPEC", "PATHEXT"}
         scrubbed_env = {k: v for k, v in os.environ.items() if k.upper() in allowed}
 
         try:
