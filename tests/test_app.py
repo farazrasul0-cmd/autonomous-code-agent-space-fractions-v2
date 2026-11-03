@@ -110,6 +110,23 @@ class TestApp(unittest.TestCase):
         finally:
             app.destroy()
 
+    def test_launch_game_enabled_on_timeout(self):
+        """Verify launch game button is enabled when dynamic checks time out but static checks pass."""
+        app = create_app(headless=True)
+        try:
+            app._handle_event({
+                "type": "done",
+                "success": False,
+                "can_launch": True,
+                "only_timeouts": True,
+                "run_dir": str(repo_root / "examples" / "runs"),
+                "main_py": str(repo_root / "examples" / "contract.json")
+            })
+            self.assertEqual(app.launch_game_btn.cget("state"), "normal")
+            self.assertIn("Static checks (V1-V6) PASSED", app.status_var.get())
+        finally:
+            app.destroy()
+
     def test_app_cancel_event_sets_flag(self):
         """Verify cancel button sets the cancellation event."""
         app = create_app(headless=True)

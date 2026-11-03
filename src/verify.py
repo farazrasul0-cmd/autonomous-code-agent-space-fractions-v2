@@ -3,9 +3,12 @@ import os
 import re
 import sys
 import ast
+import io
 import json
 import inspect
 import tkinter
+import threading
+import unittest
 import py_compile
 import subprocess
 from pathlib import Path
@@ -469,6 +472,68 @@ def check_v5_tk_collisions(run_dir: str | Path) -> list[dict]:
     return errors
 
 
+def _run_v7_in_process(run_dir: Path, tests_dir: Path, timeout: int = 25) -> list[dict]:
+    """Run unit tests in-process using unittest.TextTestRunner in a separate thread."""
+    run_dir_str = str(run_dir)
+    sys_path_added = False
+    if run_dir_str not in sys.path:
+        sys.path.insert(0, run_dir_str)
+        sys_path_added = True
+
+    result_holder = {}
+
+    def worker():
+        try:
+            stream = io.StringIO()
+            loader = unittest.TestLoader()
+            suite = loader.discover(start_dir=str(tests_dir), top_level_dir=run_dir_str)
+            runner = unittest.TextTestRunner(stream=stream, verbosity=2)
+            res = runner.run(suite)
+            result_holder["was_successful"] = res.wasSuccessful()
+            result_holder["errors"] = res.errors
+            result_holder["failures"] = res.failures
+            result_holder["output"] = stream.getvalue()
+        except Exception as exc:
+            result_holder["exception"] = exc
+
+    t = threading.Thread(target=worker, daemon=True)
+    t.start()
+    t.join(timeout=timeout)
+
+    if sys_path_added and run_dir_str in sys.path:
+        try:
+            sys.path.remove(run_dir_str)
+        except Exception:
+            pass
+
+    if t.is_alive():
+        return [{
+            "check": "V7",
+            "file": "tests",
+            "line": 0,
+            "message": f"Unit test suite in-process execution timed out after {timeout} seconds"
+        }]
+
+    if "exception" in result_holder:
+        return [{
+            "check": "V7",
+            "file": "tests",
+            "line": 0,
+            "message": f"In-process unit test execution failed: {result_holder['exception']}"
+        }]
+
+    if result_holder.get("was_successful", False):
+        return []
+
+    output = result_holder.get("output", "")
+    return [{
+        "check": "V7",
+        "file": "tests",
+        "line": 0,
+        "message": f"Unit tests failed:\n{output[:500]}"
+    }]
+
+
 def check_v7_test_execution(run_dir: str | Path, timeout: int = 60) -> list[dict]:
     """V7: Run unit tests via unittest discover and return structured failure reports."""
     run_dir = Path(run_dir).resolve()
@@ -492,23 +557,35 @@ def check_v7_test_execution(run_dir: str | Path, timeout: int = 60) -> list[dict
     else:
         cmd = [sys.executable, "-m", "unittest", "discover", "-s", str(tests_dir), "-t", str(run_dir)]
 
-    creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
+    creationflags = 0
+    startupinfo = None
+    if sys.platform == "win32":
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = 0
+
+    proc = None
+    proc_exc = None
+    timed_out = False
+
     try:
         proc = subprocess.run(
             cmd,
             cwd=str(run_dir),
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
             timeout=timeout,
-            creationflags=creationflags
+            creationflags=creationflags,
+            startupinfo=startupinfo,
+            env=os.environ.copy(),
+            close_fds=True
         )
     except subprocess.TimeoutExpired:
-        return [{
-            "check": "V7",
-            "file": "tests",
-            "line": 0,
-            "message": f"Unit test suite timed out after {timeout} seconds"
-        }]
+        timed_out = True
+    except Exception as exc:
+        proc_exc = exc
     finally:
         if created_temp_init and init_file.exists():
             try:
@@ -516,18 +593,39 @@ def check_v7_test_execution(run_dir: str | Path, timeout: int = 60) -> list[dict
             except Exception:
                 pass
 
-    if proc.returncode == 0:
+    if proc is not None and proc.returncode == 0:
         return []
 
-    # Parse failure details
-    stderr = proc.stderr or proc.stdout
-    errors = [{
+    # Check for sandbox hang, timeout, or embedded interpreter startup failure
+    stderr = (proc.stderr if proc else "") or (proc.stdout if proc else "") or str(proc_exc or "")
+    is_interpreter_or_sandbox_failure = (
+        timed_out
+        or proc_exc is not None
+        or "embedded python interpreter" in stderr.lower()
+        or "failed to execute script" in stderr.lower()
+        or (proc is not None and proc.returncode != 0 and not ("FAIL:" in stderr or "ERROR:" in stderr or "Ran " in stderr))
+    )
+
+    if is_interpreter_or_sandbox_failure:
+        in_proc_res = _run_v7_in_process(run_dir, tests_dir, timeout=25)
+        if len(in_proc_res) == 0:
+            return []
+        if timed_out and any("timed out" in err.get("message", "").lower() for err in in_proc_res):
+            return [{
+                "check": "V7",
+                "file": "tests",
+                "line": 0,
+                "message": f"Unit test suite timed out after {timeout} seconds"
+            }]
+        return in_proc_res
+
+    # Normal unit test failure from subprocess
+    return [{
         "check": "V7",
         "file": "tests",
         "line": 0,
         "message": f"Unit tests failed (exit code {proc.returncode}):\n{stderr[:500]}"
     }]
-    return errors
 
 
 def check_v8_harness(run_dir: str | Path, contract: dict, timeout: int = 35) -> list[dict]:

@@ -209,6 +209,31 @@ class TestVerify(unittest.TestCase):
             errors = check_v4_call_resolution(temp_run_dir)
             self.assertEqual(errors, [], f"V4 unexpectedly flagged annotated assignments: {errors}")
 
+    def test_v7_in_process_fallback(self):
+        """V7 in-process fallback runs unit tests in-process and reports success."""
+        from src.verify import _run_v7_in_process
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_run_dir = Path(temp_dir)
+            tests_dir = temp_run_dir / "tests"
+            tests_dir.mkdir()
+            (tests_dir / "__init__.py").write_text("", encoding="utf-8")
+            (tests_dir / "test_sample.py").write_text(
+                "import unittest\n"
+                "class SampleTest(unittest.TestCase):\n"
+                "    def test_pass(self):\n"
+                "        self.assertTrue(True)\n",
+                encoding="utf-8"
+            )
+            errors = _run_v7_in_process(temp_run_dir, tests_dir)
+            self.assertEqual(errors, [])
+
+    def test_v8_harness_skipped_returns_no_errors(self):
+        """V8 check returns 0 errors when harness returns skipped status."""
+        with unittest.mock.patch("src.verify.run_harness", return_value={"status": "skipped", "reason": "Sandbox Timeout"}):
+            errors = check_v8_harness(Path("dummy"), {})
+            self.assertEqual(errors, [])
+
 
 if __name__ == "__main__":
     unittest.main()
