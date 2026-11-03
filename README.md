@@ -56,7 +56,7 @@ Evaluation results across multiple runs and distinct application architectures a
 
 ## 4. Honest Limitations & Architecture Decisions
 
-1. **Source Line Count**: The agent is 3,679 lines to support rigorous AST verification (V1-V8), while the generated output remains a lean ~500 lines across 6 files. 67 tests pass.
+1. **Source Line Count**: The agent is 4,079 lines to support rigorous AST verification (V1-V8), while the generated output remains a lean ~500 lines across 6 files. 70 tests pass.
 2. **3+1 Evaluation Rationale**: The evaluation was conducted with 3 Space Fractions runs and 1 second-input run. I chose the conservative interpretation: $1.00 total for the evaluation.
 3. **Architectural Conflicts Policy**: When architectural specifications contain contradictory requirements (e.g. web microservices or cloud Docker containers alongside a desktop GUI), the standalone desktop Tkinter architecture strictly supersedes distributed microservices.
 4. **Naming Conventions**: Diagram names in camelCase are systematically translated to standard Python `snake_case` at the contract boundary, backed by `@property` decorators with private storage attributes.

@@ -7,9 +7,14 @@
 
 All evaluation runs were executed with hard cost tracking enabled against the `$0.85` cumulative cap. Evaluation results vary by input: Space Fractions: 5 runs passed (after autonomous repair). Smart To-Do List: 1 CLI run passed, 1 GUI Sandbox run failed.
 
+### Evidence Breakdown:
+- **3 Independent Live Runs**: `eval_sf_1` (Space Fractions CLI live), `eval_todo_1` (Smart To-Do List CLI live), and `run_gui_20261103_193107` (Space Fractions Windows GUI live).
+- **2 Cache-Replayed Runs**: `eval_sf_2` (Space Fractions generation cached, live repair), `eval_sf_3` (Space Fractions generation cached, live repair).
+- **1 Failed Sandbox Run**: `eval_todo_sandbox` (Windows Sandbox GUI run).
+
 ---
 
-## 2. Table 1: Space Fractions Architecture (Runs 1–3)
+## 2. Table 1: Space Fractions Architecture (Live & Replayed Runs)
 
 Input specification:
 - Documentation: `examples/inputs/Architecture_Documentation.md`
@@ -18,6 +23,7 @@ Input specification:
 
 | Run ID | Mode | First-Attempt Status | Repairs Needed / Executed | Final Verdict | Run Cost ($) | Notes |
 |:---|:---:|:---:|:---:|:---:|:---:|:---|
+| `run_gui_20261103_193107` | **Live** | First Attempt: V7 FAILED (7/8 pass) | 2 Rounds (Round 2 repaired `models.py`) | **PASSED** | $0.031469 | Live GUI test run in local Windows environment. Repaired in Round 2; all V1–V8 checks passed cleanly. |
 | `eval_sf_1` | **Live** | First Attempt: V7 & V8 FAILED (6/8 pass) | 3 Rounds (Round 3 fixed `app.py`, resolving V8) | **FAILED** | $0.031308 | Live API generation and repair. V8 passed after autonomous repair; V7 reached 48/49 passing tests. |
 | `eval_sf_2` | Cache Hit | First Attempt: V7 & V8 FAILED (6/8 pass) | 3 Rounds | **FAILED** | $0.005375 | Replay cache hit on generation; 3 live repair rounds executed. |
 | `eval_sf_3` | Cache Hit | First Attempt: V7 & V8 FAILED (6/8 pass) | 3 Rounds | **FAILED** | $0.005375 | Replay cache hit on generation; 3 live repair rounds executed. |
@@ -66,12 +72,15 @@ Input specification:
 
 ---
 
-## 6. Space Fractions Failure Mode Analysis
+## 6. Space Fractions Failure Mode Analysis & Path Bug Disclosure
 
 Across `eval_sf_1`, `eval_sf_2`, and `eval_sf_3`, the Space Fractions application failed on V7 (unit tests) and V8 (UI smoke walkthrough):
 - **V8 Issue**: Generated Tkinter UI attempted to pass `-style` to a standard `tkinter.Button` rather than a `ttk.Button`. In `eval_sf_1`, Round 3 of the autonomous repair loop successfully diagnosed this and edited `app.py`, turning V8 from **FAIL** to **PASS**.
 - **V7 Issue**: The synthesized unit tests asserted `self.assertIsNone(self.app.current_user)` immediately upon launch, whereas `app.py` initialized a default guest user session or dummy user. 48 of 49 unit tests passed.
 - **Reporting Integrity**: These failures are recorded faithfully and honestly without masking or synthetic overrides.
+
+### V7 Path Spaces Bug Disclosure:
+V7 previously failed on paths containing spaces. This was fixed by using a temporary directory with 8.3 short paths (with a standard space-free temp folder as a fallback). Earlier V7 failures in this project may be partly attributable to this environmental bug, which the agent's verifier exposed.
 
 ---
 
@@ -92,7 +101,7 @@ The release binaries compiled from Python 3.12 standard library with full hidden
 Test execution verification via `python -m unittest discover tests`:
 
 ```text
-Ran 64 tests in 3.973s
+Ran 70 tests in 9.568s
 
 OK
 ```

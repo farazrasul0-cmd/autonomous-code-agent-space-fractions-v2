@@ -128,7 +128,7 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
 
 - **Conservative Estimate Heuristic**: Estimate heuristic in llm.py is conservative (chars/3 prompt + max_tokens × output price). May block calls at ~50% actual spend. Fix (soft estimate with hard spent guard, OR max_tokens × 0.6 calibrated estimate) MUST be applied before Phase 8. Will be verified against actual usage from Phase 5 live calls.
 - **Measured Estimate Ratio & Soft Guard Update**: Measured estimate ratio from Phase 5 live contract call: 5.15x (est $0.017195 vs actual $0.003336). Phase 5 fix applied: Budget.check() now blocks only on actual spent >= cap, not on estimated cost. Estimate retained for logging and diagnostics.
-- **Source Line Count**: The agent is 3,679 lines to support rigorous AST verification (V1-V8), while the generated output remains a lean ~500 lines across 6 files. 67 tests pass.
+- **Source Line Count**: The agent is 4,079 lines to support rigorous AST verification (V1-V8), while the generated output remains a lean ~500 lines across 6 files. 70 tests pass.
 - **Source of Truth for Cost**: Per-call usage and cost must be read from examples/runs/<run_id>/run_log.jsonl, not from markdown report tables. Where a report table disagrees with the log, the log wins.
 
 ---
@@ -187,7 +187,7 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
   - Strict log sanitization stripping API key tokens before rendering in scrolled log.
   - Live budget meters tracking run spend against \$0.15 cap and cumulative spend against \$0.85 cap.
 - **Detached Execution Standard**: Implemented `launch_game(main_path)` using `subprocess.Popen` with `CREATE_NEW_PROCESS_GROUP` on Windows and `DEVNULL` streams with `close_fds=True`, decoupling child game lifecycle from parent GUI. Supports frozen executable (`--run-script`) and source execution.
-- **Verification & Test Coverage**: 60 unit tests passing covering AST `AnnAssign` handling, GUI initialization, queue-based stage updates, detached process spawning, and log sanitization.
+- **Verification & Test Coverage**: 70 unit tests passing covering AST `AnnAssign` handling, in-process unit test execution with 8.3 short temp paths, failure tracebacks, GUI initialization, queue-based stage updates, detached process spawning, and log sanitization.
 
 ---
 
@@ -204,6 +204,7 @@ $$\text{Total Cost (Peak)} = \$0.00005148 + \$0.00002376 = \mathbf{\$0.00007524}
 - **Live Autonomous Repair Evidence**:
   - `eval_sf_1`: V8 (Tkinter style error) repaired in Round 3 via autonomous patch to `app.py`.
   - `eval_todo_1`: V7 (Unit test failure) repaired in Round 2 via autonomous patch to `models.py`, achieving a clean 8/8 PASS across all checks (V1–V8).
+- **V7 Path Spaces Bug Disclosure & Fix**: V7 previously failed on paths containing spaces. This was fixed by using a temporary directory with 8.3 short paths (with a standard space-free temp folder as a fallback). Earlier V7 failures in this project may be partly attributable to this environmental bug, which the agent's verifier exposed.
 - **Cost Compliance & Authoritative Dashboard Spend**: The internal budget ledger undercounted API usage. The authoritative total spend of ~$0.26 USD (¥1.91 CNY) was verified via the DeepSeek Dashboard and is recorded in results.md. This authoritative spend remains well below the strict $0.85 ceiling ($0.59 remaining headroom against the evaluation ceiling).
 - **Strict TLS by Default & Opt-In Bypass**: Python's standard `urllib` strictly validates TLS certificates against the system CA store. In isolated environments like Windows Sandbox where root CA certificates may be missing, certificate verification fails with `[SSL: CERTIFICATE_VERIFY_FAILED]`. Implicit bypass of TLS was rejected as an insecure default. Instead, strict TLS verification is enforced by default (`allow_unverified_tls=False`), and an explicit GUI checkbox (`Allow unverified TLS (Not recommended)`) allows users in test sandboxes to opt in. When enabled, a visible warning is logged: "WARNING: Bypassing TLS verification. Your API key may be intercepted." When disabled, the agent guides the user to open Edge in the Sandbox to acquire root certificates.
 - **Read-Only / Sandboxed Environment Cache Storage**: In restricted or read-only environments (such as Windows Sandbox shared folder mounts), creating `.cache` in the current working directory raises `[WinError 5] Access is denied`. `src/app.py` and `src/agent.py` store the LLM request cache in the user temporary directory (`Path(tempfile.gettempdir()) / "CodeAgent_cache"`), and `Cache.put` in `src/llm.py` gracefully catches `OSError` to ensure cache writing never blocks pipeline execution.
