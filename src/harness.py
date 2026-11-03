@@ -202,6 +202,8 @@ def run_harness(run_dir: str | Path, contract: dict, timeout: int = 35) -> dict:
         proc_exc = None
         timed_out = False
 
+        scrubbed_env = {k: v for k, v in os.environ.items() if "DEEPSEEK" not in k and "API_KEY" not in k}
+
         try:
             proc = subprocess.run(
                 cmd,
@@ -212,6 +214,7 @@ def run_harness(run_dir: str | Path, contract: dict, timeout: int = 35) -> dict:
                 timeout=timeout,
                 creationflags=creationflags,
                 startupinfo=startupinfo,
+                env=scrubbed_env,
                 close_fds=True
             )
         except subprocess.TimeoutExpired:

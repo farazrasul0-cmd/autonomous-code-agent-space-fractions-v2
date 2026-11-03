@@ -269,11 +269,13 @@ class TestVerify(unittest.TestCase):
             self.assertEqual(len(errors), 1)
             self.assertIn("intentional assertion failure", errors[0]["message"])
 
-    def test_v8_harness_skipped_returns_no_errors(self):
-        """V8 check returns 0 errors when harness returns skipped status."""
-        with unittest.mock.patch("src.verify.run_harness", return_value={"status": "skipped", "reason": "Sandbox Timeout"}):
+    def test_v8_harness_skipped_rejected(self):
+        """V8 check strictly rejects skipped status with check error."""
+        with unittest.mock.patch("src.verify.run_harness", return_value={"status": "skipped", "reason": "No display"}):
             errors = check_v8_harness(Path("dummy"), {})
-            self.assertEqual(errors, [])
+            self.assertEqual(len(errors), 1)
+            self.assertEqual(errors[0]["check"], "V8")
+            self.assertIn("UI harness skipped: No display", errors[0]["message"])
 
     def test_v7_missing_or_empty_tests_dir(self):
         """V7 strictly fails when tests/ directory is missing or has no test_*.py files."""
@@ -335,6 +337,25 @@ class TestVerify(unittest.TestCase):
                 res = run_harness(td, {})
                 self.assertEqual(res["status"], "fail")
                 self.assertIn("terminated without result file", res["error"])
+
+    def test_harness_scrubbed_environment(self):
+        """Harness passes a scrubbed environment without DEEPSEEK_API_KEY to subprocess."""
+        from src.harness import run_harness
+        import tempfile
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as td:
+            (Path(td) / "main.py").write_text("def create_app(root): return None\n", encoding="utf-8")
+            with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "secret-harness-key", "SAFE_VAR": "safe"}):
+                with patch("subprocess.run") as mock_run:
+                    mock_proc = unittest.mock.MagicMock()
+                    mock_proc.returncode = 1
+                    mock_run.return_value = mock_proc
+                    run_harness(td, {})
+                    self.assertTrue(mock_run.called)
+                    call_env = mock_run.call_args.kwargs.get("env")
+                    self.assertIsNotNone(call_env)
+                    self.assertNotIn("DEEPSEEK_API_KEY", call_env)
+                    self.assertIn("SAFE_VAR", call_env)
 
 
 if __name__ == "__main__":

@@ -699,8 +699,15 @@ def check_v7_test_execution(run_dir: str | Path, timeout: int = 60) -> list[dict
 def check_v8_harness(run_dir: str | Path, contract: dict, timeout: int = 35) -> list[dict]:
     """V8: Execute dynamic UI smoke walkthrough using harness subprocess with watchdog."""
     result = run_harness(run_dir=run_dir, contract=contract, timeout=timeout)
-    if result.get("status") in ("pass", "skipped"):
+    if result.get("status") == "pass":
         return []
+    if result.get("status") == "skipped":
+        return [{
+            "check": "V8",
+            "file": "harness",
+            "line": 0,
+            "message": f"UI harness skipped: {result.get('reason', 'Unknown reason')}"
+        }]
 
     return [{
         "check": "V8",
