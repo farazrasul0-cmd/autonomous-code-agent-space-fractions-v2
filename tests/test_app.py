@@ -102,7 +102,7 @@ class TestApp(unittest.TestCase):
                 "type": "done",
                 "success": True,
                 "run_dir": str(repo_root / "examples" / "runs"),
-                "main_py": str(repo_root / "contract.json")  # file exists for test
+                "main_py": str(repo_root / "examples" / "contract.json")  # file exists for test
             })
             self.assertEqual(app.launch_game_btn.cget("state"), "normal")
             self.assertEqual(app.open_folder_btn.cget("state"), "normal")

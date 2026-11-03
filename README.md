@@ -2,6 +2,9 @@
 
 A standalone, lightweight Windows desktop agent built with the Python 3.12 standard library that reads software architecture documentation and UML diagrams, synthesizes an architectural contract, incrementally implements source code modules against the contract using DeepSeek (`deepseek-v4-pro`), enforces multi-layered verification (AST static analysis, contract conformance, unit tests, and headless Tkinter UI walkthroughs), and autonomously repairs failures in a multi-turn tool-calling loop.
 
+## Video Walkthrough
+- **Demonstration Video**: [YouTube Walkthrough (Demo & Autonomous Repair Walkthrough)](https://www.youtube.com/watch?v=PLACEHOLDER)
+
 ---
 
 ## 1. Reference-Repo Mapping Table
@@ -53,7 +56,7 @@ Evaluation results across multiple runs and distinct application architectures a
 
 ## 4. Honest Limitations & Architecture Decisions
 
-1. **Source Line Count**: The source is 3,679 lines because of the rigorous V1-V8 AST and UI verification layer (core pipeline in `src/agent.py`: 1,677 lines; GUI coordinator in `src/app.py`: 723 lines; verification engine in `src/verify.py` & `src/harness.py`: 606 lines; LLM client & budget guard: 314 lines; parser: 358 lines). This deliberate expansion is justified by rigorous correctness infrastructure: AST static analysis (V1–V8), false-positive call filtering, `AnnAssign` tolerance, property tolerance, dual budget guards, and thread-safe queue GUI. The codebase is covered by automated unit tests (64 passing via `python -m unittest discover tests`).
-2. **3+1 Evaluation Rationale**: The evaluation was conducted with 3 Space Fractions runs and 1 second-input run. Because I did not get clarification on whether the $1 limit is per run or for the whole evaluation, I assumed the stricter reading (whole evaluation under $1.00).
+1. **Source Line Count**: The agent is 3,679 lines to support rigorous AST verification (V1-V8), while the generated output remains a lean ~500 lines across 6 files. 64 tests pass.
+2. **3+1 Evaluation Rationale**: The evaluation was conducted with 3 Space Fractions runs and 1 second-input run. I chose the conservative interpretation: $1.00 total for the evaluation.
 3. **Architectural Conflicts Policy**: When architectural specifications contain contradictory requirements (e.g. web microservices or cloud Docker containers alongside a desktop GUI), the standalone desktop Tkinter architecture strictly supersedes distributed microservices.
 4. **Naming Conventions**: Diagram names in camelCase are systematically translated to standard Python `snake_case` at the contract boundary, backed by `@property` decorators with private storage attributes.

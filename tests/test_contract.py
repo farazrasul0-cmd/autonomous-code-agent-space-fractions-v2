@@ -20,7 +20,9 @@ from src.agent import (
 
 def get_sample_spec():
     """Load real spec.json or fallback mock spec."""
-    spec_path = os.path.join(repo_root, "spec.json")
+    spec_path = os.path.join(repo_root, "examples", "spec.json")
+    if not os.path.exists(spec_path):
+        spec_path = os.path.join(repo_root, "spec.json")
     if os.path.exists(spec_path):
         with open(spec_path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -213,7 +215,9 @@ class TestContract(unittest.TestCase):
 
     def test_valid_contract_passes(self):
         """Verify the real contract.json on disk passes all validation rules with 0 problems."""
-        contract_path = os.path.join(repo_root, "contract.json")
+        contract_path = os.path.join(repo_root, "examples", "contract.json")
+        if not os.path.exists(contract_path):
+            contract_path = os.path.join(repo_root, "contract.json")
         self.assertTrue(os.path.exists(contract_path), f"contract.json not found on disk at {contract_path}")
         with open(contract_path, "r", encoding="utf-8") as f:
             real_contract = json.load(f)

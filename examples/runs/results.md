@@ -3,7 +3,7 @@
 ## 1. Executive Summary & Policy Note
 
 ### Budget Note
-> **I did not get clarification on whether the $1 limit is per run or for the whole evaluation, so I assumed the stricter reading (whole evaluation under $1.00). Therefore 3+1 runs were executed.**
+> **I chose the conservative interpretation: $1.00 total for the evaluation. Therefore 3+1 runs were executed.**
 
 All evaluation runs were executed with hard cost tracking enabled against the `$0.85` cumulative cap. Evaluation results vary by input: Space Fractions: 5 runs passed (after autonomous repair). Smart To-Do List: 1 CLI run passed, 1 GUI Sandbox run failed.
 

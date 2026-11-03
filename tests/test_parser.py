@@ -134,7 +134,9 @@ class TestParser(unittest.TestCase):
         self.assertLess(byte_size, 6000, f"spec.json size {byte_size} bytes exceeds 6000-byte cap")
 
         # Also verify the committed spec.json file on disk
-        disk_spec_path = os.path.join(repo_root, "spec.json")
+        disk_spec_path = os.path.join(repo_root, "examples", "spec.json")
+        if not os.path.exists(disk_spec_path):
+            disk_spec_path = os.path.join(repo_root, "spec.json")
         if os.path.exists(disk_spec_path):
             disk_size = os.path.getsize(disk_spec_path)
             self.assertLess(disk_size, 6000, f"spec.json on disk ({disk_size} bytes) exceeds 6000-byte cap")
