@@ -918,6 +918,11 @@ def create_app(headless: bool = False) -> App:
 
 
 if __name__ == "__main__":
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w")
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w")
+
     if len(sys.argv) >= 3 and sys.argv[1] == "--run-script":
         script_to_run = sys.argv[2]
         import runpy

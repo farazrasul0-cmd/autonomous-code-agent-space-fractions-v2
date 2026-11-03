@@ -23,7 +23,7 @@ Links:
 - Release Executable (.exe): https://github.com/farazrasul0-cmd/autonomous-code-agent-space-fractions-v2/releases
 - YouTube Video: <YOUTUBE_LINK_HERE>
 
-One honest limitation: The agent is ~4,109 lines of Python because I chose to build a rigorous V1-V8 static analyzer, AST checker, and headless Tkinter UI verification layer to guarantee it catches the specific bugs you mentioned. The build is unsigned, so Windows SmartScreen may prompt, but the README explains the SHA256 verification.
+One honest limitation: The agent is ~4,113 lines of Python because I chose to build a rigorous V1-V8 static analyzer, AST checker, and headless Tkinter UI verification layer to guarantee it catches the specific bugs you mentioned. The build is unsigned, so Windows SmartScreen may prompt, but the README explains the SHA256 verification.
 
 Thank you for your time and consideration.
 
