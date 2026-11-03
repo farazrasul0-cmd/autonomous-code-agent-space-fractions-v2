@@ -113,7 +113,13 @@ def run_harness(run_dir: str | Path, contract: dict, timeout: int = 35) -> dict:
         worker_script.write_text(HARNESS_WORKER_SCRIPT, encoding="utf-8")
         contract_file.write_text(json.dumps(contract), encoding="utf-8")
 
-        cmd = [sys.executable, str(worker_script), str(run_dir), str(contract_file), str(out_file)]
+        is_frozen = getattr(sys, "frozen", False)
+        if is_frozen:
+            cmd = [sys.executable, "--run-script", str(worker_script), str(run_dir), str(contract_file), str(out_file)]
+        else:
+            cmd = [sys.executable, str(worker_script), str(run_dir), str(contract_file), str(out_file)]
+
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
 
         try:
             proc = subprocess.run(
@@ -121,7 +127,8 @@ def run_harness(run_dir: str | Path, contract: dict, timeout: int = 35) -> dict:
                 cwd=str(run_dir),
                 capture_output=True,
                 text=True,
-                timeout=timeout
+                timeout=timeout,
+                creationflags=creationflags
             )
         except subprocess.TimeoutExpired:
             return {

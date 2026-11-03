@@ -486,14 +486,21 @@ def check_v7_test_execution(run_dir: str | Path, timeout: int = 60) -> list[dict
         except Exception:
             pass
 
-    cmd = [sys.executable, "-m", "unittest", "discover", "-s", str(tests_dir), "-t", str(run_dir)]
+    is_frozen = getattr(sys, "frozen", False)
+    if is_frozen:
+        cmd = [sys.executable, "--run-module", "unittest", "discover", "-s", str(tests_dir), "-t", str(run_dir)]
+    else:
+        cmd = [sys.executable, "-m", "unittest", "discover", "-s", str(tests_dir), "-t", str(run_dir)]
+
+    creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
     try:
         proc = subprocess.run(
             cmd,
             cwd=str(run_dir),
             capture_output=True,
             text=True,
-            timeout=timeout
+            timeout=timeout,
+            creationflags=creationflags
         )
     except subprocess.TimeoutExpired:
         return [{

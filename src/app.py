@@ -873,8 +873,25 @@ if __name__ == "__main__":
     if len(sys.argv) >= 3 and sys.argv[1] == "--run-script":
         script_to_run = sys.argv[2]
         import runpy
+        script_dir = str(Path(script_to_run).resolve().parent)
+        if script_dir not in sys.path:
+            sys.path.insert(0, script_dir)
         sys.argv = sys.argv[2:]
-        runpy.run_path(script_to_run, run_name="__main__")
+        try:
+            runpy.run_path(script_to_run, run_name="__main__")
+        except SystemExit as e:
+            sys.exit(e.code)
+    elif len(sys.argv) >= 3 and sys.argv[1] == "--run-module":
+        mod_to_run = sys.argv[2]
+        import runpy
+        cwd = os.getcwd()
+        if cwd not in sys.path:
+            sys.path.insert(0, cwd)
+        sys.argv = [mod_to_run] + sys.argv[3:]
+        try:
+            runpy.run_module(mod_to_run, run_name="__main__", alter_sys=True)
+        except SystemExit as e:
+            sys.exit(e.code)
     else:
         app = create_app()
         app.mainloop()
