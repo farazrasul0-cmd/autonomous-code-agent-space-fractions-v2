@@ -55,7 +55,7 @@ Verify the downloaded .zip using SHA256 before running. See hash below.
 5. **Generality Proven Across Diverse Architectures**:
    - Evaluated on **Space Fractions** (Gaming architecture: `Game`, `Question`, `User`, `Admin`).
    - Evaluated on **Smart To-Do List** (Productivity architecture: `Task`, `TaskManager`).
-   - Autonomous self-repair across runs under an authoritative total spend of **~$0.26 USD / ¥1.91 CNY** (well below the $1.00 budget ceiling).
+   - Autonomous self-repair across runs under an authoritative total spend of **~$0.29 USD / ¥2.12 CNY** (well below the $1.00 budget ceiling).
 
 ---
 
