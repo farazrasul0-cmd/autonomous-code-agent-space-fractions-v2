@@ -1,6 +1,6 @@
-# DeepSeek Code Agent — Release v1.1.0
+# DeepSeek Code Agent — Release v1.2.0
 
-Official standalone binary release of the DeepSeek Code Agent for Task 1 evaluation. Built from commit `679bbae` (`679bbaeb93c92d664d61d6a25cdd3f648873b32b`).
+Official standalone binary release of the DeepSeek Code Agent for Task 1 evaluation. Built from commit `3414db4` (`3414db4ebdfd23604f86d63bc3a6c98ea944f2fb`).
 
 Verify the downloaded .zip using SHA256 before running. See hash below.
 
@@ -10,8 +10,8 @@ Verify the downloaded .zip using SHA256 before running. See hash below.
 
 | Artifact | Distribution Type | SHA256 Checksum | Description |
 |:---|:---:|:---:|:---|
-| **`CodeAgent_onedir.zip`** | **Primary (Shipped)** | `d8d000a22533488399585694943670657febb1c5659b44b23bbc80f6cb11c0fb` | Complete unpacked folder bundle (`CodeAgent.exe` + `_internal/` runtime). Ships as the sole production release artifact. Fastest startup, fully compatible with Windows Sandbox. |
-| **`CodeAgentOneFile.exe`** | *Experimental (Excluded)* | `b1328573537b3e2adf9db745112e40358b0bdd0829df3ee7161ef6953848ed75` | *Experimental / not shipped in release.* Detached child processes spawned from a onefile executable depend on the parent's `%TEMP%` extraction folder, which is deleted when the parent process exits. |
+| **`CodeAgent_onedir.zip`** | **Primary (Shipped)** | `79f3de4ccb7bab6191f26657ec20653783d11d08922464f77cfcfc3580f2492f` | Complete unpacked folder bundle (`CodeAgent.exe` + `_internal/` runtime). Ships as the sole production release artifact. Fastest startup, fully compatible with Windows Sandbox. |
+| **`CodeAgentOneFile.exe`** | *Experimental (Excluded)* | `a7dacef276760c984516b6271724cb6ec59d5805f1ce5fd3397dac2c7822db2f` | *Experimental / not shipped in release.* Detached child processes spawned from a onefile executable depend on the parent's `%TEMP%` extraction folder, which is deleted when the parent process exits. |
 
 ---
 
