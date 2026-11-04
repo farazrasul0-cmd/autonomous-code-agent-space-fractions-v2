@@ -25,7 +25,7 @@ As required by Task 1, this agent investigates open-source Claude-Code and agent
 ## 2. Quick Start
 
 ### Running the Standalone Executable (.exe)
-1. Download the latest release (`CodeAgent_onedir.zip`, Release `v1.1.0`, commit `679bbae`) from [GitHub Releases](https://github.com/farazrasul0-cmd/autonomous-code-agent-space-fractions-v2/releases) and extract the archive.
+1. Download the latest release (`CodeAgent_onedir.zip`, Release `v1.2.0`, commit `3414db4`) from [GitHub Releases](https://github.com/farazrasul0-cmd/autonomous-code-agent-space-fractions-v2/releases) and extract the archive.
 2. Double-click **`CodeAgent.exe`**.
    > **Note on Windows SmartScreen**: Because this binary is unsigned, Windows SmartScreen may display a blue warning dialog (*"Windows protected your PC"*). Click **"More info"**, then click **"Run anyway"**.
 3. **Configure API Key**: Enter your DeepSeek API key in the masked field (or leave empty if `DEEPSEEK_API_KEY` is set in your environment). Click **"Test Key"** to verify connectivity.
@@ -50,7 +50,7 @@ Evaluation results across all runs (including failures) are recorded in [results
 - **Unified Run Table**: Every run from the project lifecycle is recorded in a single table with date, input, source/exe, build commit, first-attempt failures, repair rounds, final result, and cost. See [results.md](results.md) for the full table.
 - **Dynamic Contract Synthesis**: Successfully parsed the second input specification (To-Do List: 1 UseCase diagram, 1 Class diagram, 1 State diagram) and dynamically generated an independent domain model (`Task`, `TaskManager`) with zero hardcoded game logic.
 - **Autonomous Healing**: In `eval_todo_1`, initial generation produced a test mismatch (V7); the autonomous repair loop patched `models.py` at Round 2, achieving all 8 checks PASS and a final verdict of **PASSED**. In `eval_sf_1`, Round 3 repaired `app.py`, converting V8 to PASS.
-- **Total Evaluation Spend**: Authoritative total spend verified on DeepSeek Dashboard at **¥1.98 CNY (~$0.27 USD)** across all development, testing, release binary evaluations, and rehearsals, remaining comfortably under the strict $0.85 budget cap. A few cents per run (Dashboard is the authoritative source; typical synthesis runs cost between $0.009 and $0.025).
+- **Total Evaluation Spend**: Authoritative total spend verified on DeepSeek Dashboard at **¥2.12 CNY (~$0.29 USD)** across all development, testing, release binary evaluations, and rehearsals, remaining comfortably under the strict $0.85 budget cap. A few cents per run (Dashboard is the authoritative source; typical synthesis runs cost between $0.010 and $0.018).
 
 ---
 
