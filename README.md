@@ -3,7 +3,7 @@
 A standalone, lightweight Windows desktop agent built with the Python 3.12 standard library that reads software architecture documentation and UML diagrams, synthesizes an architectural contract, incrementally implements source code modules against the contract using DeepSeek (`deepseek-v4-pro`), enforces multi-layered verification (AST static analysis, contract conformance, unit tests, and headless Tkinter UI walkthroughs), and autonomously repairs failures in a multi-turn tool-calling loop.
 
 ## Video Walkthrough
-- **Demonstration Video**: [YouTube Walkthrough (Demo & Autonomous Repair Walkthrough)](https://www.youtube.com/watch?v=PLACEHOLDER) *(Replace `PLACEHOLDER` with published video ID and verify in an incognito window)*
+- **Demonstration Video**: [YouTube Walkthrough (Demo & Autonomous Repair Walkthrough)](https://youtu.be/d-7qc7QIC8M)
 
 ---
 
