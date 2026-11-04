@@ -1,6 +1,6 @@
-# DeepSeek Code Agent — Release v1.2.0
+# DeepSeek Code Agent — Release v1.3.0
 
-Official standalone binary release of the DeepSeek Code Agent for Task 1 evaluation. Built from commit `3414db4` (`3414db4ebdfd23604f86d63bc3a6c98ea944f2fb`).
+Official standalone binary release of the DeepSeek Code Agent for Task 1 evaluation. Built from commit `12e575b` (`12e575bf62354610c7480dbb2e3dfbf4a7123b17`).
 
 Verify the downloaded .zip using SHA256 before running. See hash below.
 
@@ -10,7 +10,7 @@ Verify the downloaded .zip using SHA256 before running. See hash below.
 
 | Artifact | Distribution Type | SHA256 Checksum | Description |
 |:---|:---:|:---:|:---|
-| **`CodeAgent_onedir.zip`** | **Primary (Shipped)** | `79f3de4ccb7bab6191f26657ec20653783d11d08922464f77cfcfc3580f2492f` | Complete unpacked folder bundle (`CodeAgent.exe` + `_internal/` runtime). Ships as the sole production release artifact. Fastest startup, fully compatible with Windows Sandbox. |
+| **`CodeAgent_onedir.zip`** | **Primary (Shipped)** | `562ceffcbe30d8708b414f5f6882bb8376156d7492a80412836efd995d2929dc` | Complete unpacked folder bundle (`CodeAgent.exe` + `_internal/` runtime). Ships as the sole production release artifact. Fastest startup, fully compatible with Windows Sandbox. |
 | **`CodeAgentOneFile.exe`** | *Experimental (Excluded)* | `a7dacef276760c984516b6271724cb6ec59d5805f1ce5fd3397dac2c7822db2f` | *Experimental / not shipped in release.* Detached child processes spawned from a onefile executable depend on the parent's `%TEMP%` extraction folder, which is deleted when the parent process exits. |
 
 ---
@@ -45,7 +45,7 @@ Verify the downloaded .zip using SHA256 before running. See hash below.
    - **V5**: Tkinter Method Collision Guard
    - **V6**: Import Dependency Confinement
    - **V7**: Automated Unit Test Execution
-   - **V8**: Headless UI Screen Walkthrough Harness
+   - **V8**: Headless UI Screen Walkthrough Harness (augmented with behavioral widget and text expectation verification)
 3. **Autonomous Multi-Turn Repair Loop**:
    - Diagnostic AST errors and runtime test failures are reinjected as structured observations.
    - The agent tool calling interface (`read_file`, `write_file`, `list_dir`, `run_checks`) autonomously modifies failing files until checks pass.

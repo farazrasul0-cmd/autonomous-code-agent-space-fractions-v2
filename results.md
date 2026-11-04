@@ -10,9 +10,10 @@ Every run across the lifecycle of the project is recorded honestly below without
 
 ### Release Package Integrity & Execution Environment
 - **Distribution Package**: `CodeAgent_onedir.zip` (PyInstaller onedir distribution)
-- **GitHub Release Tag**: [`v1.2.0`](https://github.com/farazrasul0-cmd/autonomous-code-agent-space-fractions-v2/releases/tag/v1.2.0)
-- **Build Commit**: `3414db4ebdfd23604f86d63bc3a6c98ea944f2fb` (`3414db4`)
-- **Package SHA-256 Checksum**: `79f3de4ccb7bab6191f26657ec20653783d11d08922464f77cfcfc3580f2492f`
+- **GitHub Release Tag**: [`v1.3.0`](https://github.com/farazrasul0-cmd/autonomous-code-agent-space-fractions-v2/releases/tag/v1.3.0)
+- **Build Commit**: `12e575bf62354610c7480dbb2e3dfbf4a7123b17` (`12e575b`)
+- **Package SHA-256 Checksum**: `562ceffcbe30d8708b414f5f6882bb8376156d7492a80412836efd995d2929dc`
+- **Behavioral UI Smoke Verification (V8)**: Enhanced `src/harness.py` with runtime UI expectation inspection across game states (end game, question management, answer feedback) with widget class checks.
 - **Dynamic Signature Inspection**: Smoke test generation now uses runtime `make(cls)` inspection with `inspect.signature` to supply valid synthetic arguments conforming to the actual constructor definition, completely resolving constructor parameter mismatches on Attempt 1 (Round 0).
 - **Expanded Repair Margin**: Maximum allowed repair loop rounds expanded to 5 (`max_rounds = 5`).
 - **Single-File Exe Retired**: `CodeAgentOneFile.exe` was deliberately excluded from release distribution. Detached child processes launched from onefile executables inherit dependencies from the parent's temporary unpack folder (`%TEMP%\_MEIxxxxxx`), which Windows purges when the parent process terminates. Shipping the onedir directory zip guarantees long-term runtime isolation, independent child lifetimes, and persistent DLLs.
@@ -22,7 +23,7 @@ Every run across the lifecycle of the project is recorded honestly below without
 
 ## 2. Unified Multi-Run Evaluation Table
 
-Below is the complete, unabridged record of all 11 runs across the project lifecycle. Prominently featured at the top are the **3 real live runs executed directly from the release binary** (`dist/extracted_onedir/CodeAgent.exe`, Release `v1.2.0`), alongside the **restored historical baseline `eval_sf_1`**:
+Below is the complete, unabridged record of all 11 runs across the project lifecycle. Prominently featured at the top are the **3 real live runs executed directly from the release binary** (`dist/extracted_onedir/CodeAgent.exe`), alongside the **restored historical baseline `eval_sf_1`**:
 
 | Date & Run ID | Run Classification | Input System | Execution Target | Build Commit | First-Attempt Failures | Repair Rounds | Final Result | Cost (USD) |
 |:---|:---|:---|:---:|:---:|:---|:---:|:---:|:---:|
@@ -42,7 +43,7 @@ Below is the complete, unabridged record of all 11 runs across the project lifec
 
 ## 3. Deep-Dive: 3 Real Release Runs from `CodeAgent.exe`
 
-Each of the following runs was initiated directly using the compiled release binary (`dist/extracted_onedir/CodeAgent.exe`) under Release [`v1.2.0`](https://github.com/farazrasul0-cmd/autonomous-code-agent-space-fractions-v2/releases/tag/v1.2.0) (commit `3414db4`):
+Each of the following runs was initiated directly using the compiled release binary (`dist/extracted_onedir/CodeAgent.exe`) under Release [`v1.3.0`](https://github.com/farazrasul0-cmd/autonomous-code-agent-space-fractions-v2/releases/tag/v1.3.0) (predecessor baseline `3414db4`):
 
 ### Run 1: `eval_release_sf_1` (Space Fractions Synthesis)
 - **Target Application**: Space Fractions
@@ -130,7 +131,7 @@ The `eval_sf_1` run (`examples/runs/eval_sf_1/`) was our initial full-pipeline t
 - **Engineering Lessons Adopted**:
   1. We replaced static template argument lists in `generate_test_file` with the runtime `make(cls)` inspection helper using Python's `inspect.signature`.
   2. We expanded `max_rounds` from 3 to 5 in both `src/agent.py` and `src/app.py`.
-  3. In all Release `v1.2.0` evaluations (`eval_release_sf_1`, `eval_release_sf_2`, and `eval_release_todo_1`), all verification checks passed cleanly on **Attempt 1 (Round 0)** with zero repair cycles.
+  3. In all Release evaluations (`eval_release_sf_1`, `eval_release_sf_2`, and `eval_release_todo_1`), all verification checks passed cleanly on **Attempt 1 (Round 0)** with zero repair cycles.
 
 ---
 
