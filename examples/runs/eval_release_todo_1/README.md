@@ -8,7 +8,7 @@ Desktop application implementation synthesized by DeepSeek Code Agent.
 - **Modules**:
 - `models.py`: Domain classes Task and TaskManager
 - `app.py`: Tkinter GUI application class App
-- `main.py`: Application entrypoint with create_app function
+- `main.py`: Entry point with create_app function
 
 ## Running the Application
 ```bash

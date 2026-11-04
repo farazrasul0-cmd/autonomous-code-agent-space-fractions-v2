@@ -1,28 +1,24 @@
 """Domain model classes for the Space Fractions desktop application.
 
-This module provides the core domain entities used by the application:
+This module defines the core domain entities used by the application:
 Game, Question, User, and Admin. It relies exclusively on the Python 3.12
 standard library and exposes public properties for every declared attribute
-so that other modules (for example, the Tkinter UI layer) can read and
-mutate state directly.
+so that other modules can read and mutate state directly (for example,
+``game.score += 1`` or ``user.username``).
 """
 
 from typing import List
 
 
 class Game:
-    """Represents a single game session.
-
-    A game tracks its identifier, current score, and lifecycle state. The
-    state is one of ``"Playing"``, ``"Paused"``, or ``"GameOver"``.
-    """
+    """Represents a single game session with a score and lifecycle state."""
 
     def __init__(self, id: str, score: int) -> None:
-        """Initialize a new game session.
+        """Initialize a new game.
 
         Args:
             id: Unique identifier for the game session.
-            score: Initial score for the game.
+            score: Starting score for the game.
         """
         self._id = id
         self._score = score
@@ -35,6 +31,7 @@ class Game:
 
     @id.setter
     def id(self, value: str) -> None:
+        """Set the game identifier."""
         self._id = value
 
     @property
@@ -44,6 +41,7 @@ class Game:
 
     @score.setter
     def score(self, value: int) -> None:
+        """Set the current score."""
         self._score = value
 
     @property
@@ -53,6 +51,7 @@ class Game:
 
     @state.setter
     def state(self, value: str) -> None:
+        """Set the current game state."""
         self._state = value
 
     def play(self) -> None:
@@ -60,7 +59,7 @@ class Game:
         self._state = "Playing"
 
     def view_score(self) -> int:
-        """Return the current score."""
+        """Return the current score for this game."""
         return self._score
 
     def pause(self) -> None:
@@ -106,6 +105,7 @@ class Question:
 
     @id.setter
     def id(self, value: str) -> None:
+        """Set the question identifier."""
         self._id = value
 
     @property
@@ -115,15 +115,17 @@ class Question:
 
     @prompt.setter
     def prompt(self, value: str) -> None:
+        """Set the question prompt."""
         self._prompt = value
 
     @property
     def options(self) -> List[str]:
-        """Return the list of answer options."""
+        """Return the answer options."""
         return self._options
 
     @options.setter
     def options(self, value: List[str]) -> None:
+        """Set the answer options."""
         self._options = value
 
     @property
@@ -133,6 +135,7 @@ class Question:
 
     @answer_index.setter
     def answer_index(self, value: int) -> None:
+        """Set the index of the correct answer."""
         self._answer_index = value
 
     def get_prompt(self) -> str:
@@ -140,7 +143,7 @@ class Question:
         return self._prompt
 
     def get_options(self) -> List[str]:
-        """Return the list of answer options."""
+        """Return the answer options."""
         return self._options
 
     def get_answer_index(self) -> int:
@@ -168,6 +171,7 @@ class User:
 
     @id.setter
     def id(self, value: str) -> None:
+        """Set the user identifier."""
         self._id = value
 
     @property
@@ -177,6 +181,7 @@ class User:
 
     @username.setter
     def username(self, value: str) -> None:
+        """Set the username."""
         self._username = value
 
     def play_game(self, game: Game) -> None:
@@ -208,6 +213,7 @@ class Admin:
 
     @id.setter
     def id(self, value: str) -> None:
+        """Set the administrator identifier."""
         self._id = value
 
     @property
@@ -217,6 +223,7 @@ class Admin:
 
     @username.setter
     def username(self, value: str) -> None:
+        """Set the administrator username."""
         self._username = value
 
     def update_questions(self, questions: List[Question]) -> None:
@@ -230,8 +237,9 @@ class Admin:
     @property
     def questions(self) -> List[Question]:
         """Return the questions currently managed by the administrator."""
-        return self._questions
+        return getattr(self, "_questions", [])
 
     @questions.setter
     def questions(self, value: List[Question]) -> None:
+        """Set the questions managed by the administrator."""
         self._questions = value

@@ -1,4 +1,6 @@
-import sys, os
+import sys
+import os
+
 if sys.stdout is None:
     sys.stdout = open(os.devnull, 'w')
 if sys.stderr is None:
@@ -17,5 +19,5 @@ def create_app(root: tk.Tk) -> Application:
 if __name__ == '__main__':
     root = tk.Tk()
     root.title("Space Fractions")
-    app = create_app(root)
+    create_app(root)
     root.mainloop()

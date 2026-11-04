@@ -17,5 +17,5 @@ def create_app(root: tk.Tk) -> App:
 if __name__ == '__main__':
     root = tk.Tk()
     root.title("Smart To-Do List")
-    create_app(root)
+    app = create_app(root)
     root.mainloop()

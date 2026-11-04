@@ -1932,7 +1932,7 @@ def cli(doc_path: str, view_path: str, output_root: str, api_key: str = None, ca
     curr_cumulative = get_current_cumulative_spend(repo_root / "examples" / "runs")
     budget = Budget(run_cap=0.15, total_cap=0.85, spent=0.0, total_spent=curr_cumulative)
     cache_dir = Path(os.getcwd()) / ".cache"
-    cache = Cache(cache_dir=str(cache_dir), mode="record" if cache_mode == "live" else "replay")
+    cache = Cache(cache_dir=str(cache_dir), mode="live" if cache_mode == "live" else "replay")
     client = Client(api_key=api_key, budget=budget, cache=cache)
 
     start_time_str = time.strftime("%Y-%m-%d %H:%M:%S")

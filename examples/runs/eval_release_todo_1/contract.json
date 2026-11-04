@@ -16,7 +16,7 @@
     },
     {
       "path": "main.py",
-      "purpose": "Application entrypoint with create_app function",
+      "purpose": "Entry point with create_app function",
       "order": 3,
       "imports": [
         "app"
@@ -181,7 +181,7 @@
     {
       "name": "add_task",
       "signature": "add_task() -> None",
-      "purpose": "Add a new task from the entry field"
+      "purpose": "Add a new task from the title entry"
     },
     {
       "name": "complete_task",
@@ -191,7 +191,7 @@
     {
       "name": "refresh_task_list",
       "signature": "refresh_task_list() -> None",
-      "purpose": "Update the listbox with current tasks"
+      "purpose": "Update the task listbox with current tasks"
     }
   ],
   "states": [
@@ -246,27 +246,27 @@
       "code_symbol": "TaskManager"
     },
     {
-      "diagram_element": "UseCase.Add Task",
+      "diagram_element": "UseCaseDiagram.Add Task",
       "code_symbol": "App.add_task"
     },
     {
-      "diagram_element": "UseCase.View Tasks",
+      "diagram_element": "UseCaseDiagram.View Tasks",
       "code_symbol": "App.refresh_task_list"
     },
     {
-      "diagram_element": "UseCase.Complete Task",
+      "diagram_element": "UseCaseDiagram.Complete Task",
       "code_symbol": "App.complete_task"
     },
     {
-      "diagram_element": "State.Pending",
-      "code_symbol": "Task.state"
+      "diagram_element": "StateDiagram.Pending",
+      "code_symbol": "Task.state == 'Pending'"
     },
     {
-      "diagram_element": "State.Completed",
-      "code_symbol": "Task.state"
+      "diagram_element": "StateDiagram.Completed",
+      "code_symbol": "Task.state == 'Completed'"
     },
     {
-      "diagram_element": "Transition.Pending->Completed",
+      "diagram_element": "StateDiagram.Transition.Pending->Completed",
       "code_symbol": "Task.mark_completed"
     }
   ],

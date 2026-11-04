@@ -1,10 +1,12 @@
 """Domain model classes for the Space Fractions desktop application.
 
-This module provides the core domain entities used by the application:
-Game, Question, User, and Admin. It relies exclusively on the Python 3.12
-standard library and exposes public properties for every declared attribute
-so that other modules (for example, the Tkinter UI layer) can read and
-mutate state directly.
+This module defines the core domain entities used by the application:
+Game, Question, User, and Admin.
+
+All classes follow a consistent attribute pattern: private storage using a
+single leading underscore (``_name``) plus public property accessors so that
+cross-module access such as ``obj.state`` or ``obj.score += 1`` works
+naturally.
 """
 
 from typing import List
@@ -35,6 +37,7 @@ class Game:
 
     @id.setter
     def id(self, value: str) -> None:
+        """Set the game identifier."""
         self._id = value
 
     @property
@@ -44,6 +47,7 @@ class Game:
 
     @score.setter
     def score(self, value: int) -> None:
+        """Set the current score."""
         self._score = value
 
     @property
@@ -53,6 +57,7 @@ class Game:
 
     @state.setter
     def state(self, value: str) -> None:
+        """Set the current game state."""
         self._state = value
 
     def play(self) -> None:
@@ -60,7 +65,11 @@ class Game:
         self._state = "Playing"
 
     def view_score(self) -> int:
-        """Return the current score."""
+        """Return the current score.
+
+        Returns:
+            The current game score.
+        """
         return self._score
 
     def pause(self) -> None:
@@ -92,7 +101,7 @@ class Question:
             id: Unique identifier for the question.
             prompt: The question text shown to the player.
             options: The list of answer choices.
-            answer_index: Index of the correct answer within ``options``.
+            answer_index: Index into ``options`` of the correct answer.
         """
         self._id = id
         self._prompt = prompt
@@ -106,6 +115,7 @@ class Question:
 
     @id.setter
     def id(self, value: str) -> None:
+        """Set the question identifier."""
         self._id = value
 
     @property
@@ -115,6 +125,7 @@ class Question:
 
     @prompt.setter
     def prompt(self, value: str) -> None:
+        """Set the question prompt."""
         self._prompt = value
 
     @property
@@ -124,6 +135,7 @@ class Question:
 
     @options.setter
     def options(self, value: List[str]) -> None:
+        """Set the list of answer options."""
         self._options = value
 
     @property
@@ -133,18 +145,31 @@ class Question:
 
     @answer_index.setter
     def answer_index(self, value: int) -> None:
+        """Set the index of the correct answer."""
         self._answer_index = value
 
     def get_prompt(self) -> str:
-        """Return the question prompt."""
+        """Return the question prompt.
+
+        Returns:
+            The prompt text.
+        """
         return self._prompt
 
     def get_options(self) -> List[str]:
-        """Return the list of answer options."""
+        """Return the list of answer options.
+
+        Returns:
+            A list of answer choice strings.
+        """
         return self._options
 
     def get_answer_index(self) -> int:
-        """Return the index of the correct answer."""
+        """Return the index of the correct answer.
+
+        Returns:
+            The correct answer index.
+        """
         return self._answer_index
 
 
@@ -168,6 +193,7 @@ class User:
 
     @id.setter
     def id(self, value: str) -> None:
+        """Set the user identifier."""
         self._id = value
 
     @property
@@ -177,14 +203,26 @@ class User:
 
     @username.setter
     def username(self, value: str) -> None:
+        """Set the username."""
         self._username = value
 
     def play_game(self, game: Game) -> None:
-        """Start playing the given game session."""
+        """Start playing the given game session.
+
+        Args:
+            game: The game session to play.
+        """
         game.play()
 
     def view_score(self, game: Game) -> int:
-        """Return the score of the given game session."""
+        """Return the score for the given game session.
+
+        Args:
+            game: The game session whose score should be returned.
+
+        Returns:
+            The current score of the game.
+        """
         return game.view_score()
 
 
@@ -208,6 +246,7 @@ class Admin:
 
     @id.setter
     def id(self, value: str) -> None:
+        """Set the administrator identifier."""
         self._id = value
 
     @property
@@ -217,6 +256,7 @@ class Admin:
 
     @username.setter
     def username(self, value: str) -> None:
+        """Set the administrator username."""
         self._username = value
 
     def update_questions(self, questions: List[Question]) -> None:
@@ -234,4 +274,5 @@ class Admin:
 
     @questions.setter
     def questions(self, value: List[Question]) -> None:
+        """Set the questions managed by the administrator."""
         self._questions = value

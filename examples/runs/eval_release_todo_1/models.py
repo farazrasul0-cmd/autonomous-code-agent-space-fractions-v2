@@ -3,9 +3,10 @@
 This module provides the core data classes used by the application:
 
 * :class:`Task` - a single to-do item with an id, title, and state.
-* :class:`TaskManager` - a collection of tasks with basic operations.
+* :class:`TaskManager` - a collection of tasks with operations to add,
+  list, and complete tasks.
 
-Only the Python 3.12 standard library is used.
+The module relies exclusively on the Python 3.12 standard library.
 """
 
 import uuid
@@ -13,78 +14,69 @@ from typing import List
 
 
 class Task:
-    """A single to-do item.
+    """Represents a single to-do item.
 
-    Attributes:
-        id: Unique identifier for the task.
-        title: Human-readable description of the task.
-        state: Current state of the task (``"Pending"`` or ``"Completed"``).
+    A task has a unique identifier, a human-readable title, and a state
+    that is either ``"Pending"`` or ``"Completed"``.
     """
 
-    PENDING = "Pending"
-    COMPLETED = "Completed"
-
-    def __init__(self, title: str, task_id: str | None = None, state: str | None = None) -> None:
-        """Create a new task.
+    def __init__(self, title: str, task_id: str | None = None) -> None:
+        """Initialize a new task.
 
         Args:
-            title: The task description.
-            task_id: Optional unique identifier. If omitted, a UUID is generated.
-            state: Optional initial state. If omitted, defaults to ``"Pending"``.
+            title: The human-readable description of the task.
+            task_id: Optional unique identifier. If omitted, a UUID is
+                generated automatically.
         """
-        self._id = task_id if task_id is not None else str(uuid.uuid4())
-        self._title = title
-        self._state = state if state is not None else self.PENDING
+        self._id: str = task_id if task_id is not None else str(uuid.uuid4())
+        self._title: str = title
+        self._state: str = "Pending"
 
     @property
     def id(self) -> str:
-        """Return the task's unique identifier."""
+        """Return the unique identifier of the task."""
         return self._id
 
     @id.setter
     def id(self, value: str) -> None:
-        """Set the task's unique identifier."""
+        """Set the unique identifier of the task."""
         self._id = value
 
     @property
     def title(self) -> str:
-        """Return the task's title."""
+        """Return the title of the task."""
         return self._title
 
     @title.setter
     def title(self, value: str) -> None:
-        """Set the task's title."""
+        """Set the title of the task."""
         self._title = value
 
     @property
     def state(self) -> str:
-        """Return the task's current state."""
+        """Return the current state of the task."""
         return self._state
 
     @state.setter
     def state(self, value: str) -> None:
-        """Set the task's current state."""
+        """Set the current state of the task."""
         self._state = value
 
     def mark_completed(self) -> None:
-        """Transition the task from ``Pending`` to ``Completed``."""
-        self._state = self.COMPLETED
+        """Transition the task from ``"Pending"`` to ``"Completed"``."""
+        self._state = "Completed"
 
     def get_title(self) -> str:
-        """Return the task's title."""
+        """Return the title of the task."""
         return self._title
 
 
 class TaskManager:
-    """Manages a collection of :class:`Task` objects."""
+    """Manages a collection of :class:`Task` instances."""
 
-    def __init__(self, tasks: List[Task] | None = None) -> None:
-        """Create a task manager.
-
-        Args:
-            tasks: Optional initial list of tasks. If omitted, an empty list is used.
-        """
-        self._tasks = tasks if tasks is not None else []
+    def __init__(self) -> None:
+        """Initialize an empty task manager."""
+        self._tasks: List[Task] = []
 
     @property
     def tasks(self) -> List[Task]:
@@ -93,28 +85,24 @@ class TaskManager:
 
     @tasks.setter
     def tasks(self, value: List[Task]) -> None:
-        """Replace the managed task list."""
+        """Replace the list of tasks managed by this instance."""
         self._tasks = value
 
     def add_task(self, title: str) -> Task:
         """Create a new task with the given title and add it to the manager.
 
         Args:
-            title: The description for the new task.
+            title: The title for the new task.
 
         Returns:
-            The newly created :class:`Task`.
+            The newly created :class:`Task` instance.
         """
         task = Task(title)
         self._tasks.append(task)
         return task
 
     def get_tasks(self) -> List[Task]:
-        """Return all tasks currently managed.
-
-        Returns:
-            A list of :class:`Task` objects.
-        """
+        """Return all tasks currently managed by this instance."""
         return self._tasks
 
     def complete_task(self, task_id: str) -> None:
@@ -128,4 +116,4 @@ class TaskManager:
         for task in self._tasks:
             if task.id == task_id:
                 task.mark_completed()
-                return
+                break

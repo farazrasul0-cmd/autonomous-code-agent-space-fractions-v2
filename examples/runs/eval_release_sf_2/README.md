@@ -8,7 +8,7 @@ Desktop application implementation synthesized by DeepSeek Code Agent.
 - **Modules**:
 - `models.py`: Domain model classes: Game, Question, User, Admin
 - `app.py`: Application class with UI and game logic
-- `main.py`: Entry point: create_app function and main guard
+- `main.py`: Entry point: create_app function
 
 ## Running the Application
 ```bash

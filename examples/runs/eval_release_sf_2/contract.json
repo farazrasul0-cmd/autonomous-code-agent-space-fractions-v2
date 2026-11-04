@@ -16,7 +16,7 @@
     },
     {
       "path": "main.py",
-      "purpose": "Entry point: create_app function and main guard",
+      "purpose": "Entry point: create_app function",
       "order": 3,
       "imports": [
         "app"
@@ -368,51 +368,51 @@
     {
       "call": "show_menu",
       "args": [],
-      "purpose": "Smoke test show_menu"
+      "purpose": "Smoke test show menu"
     },
     {
       "call": "start_play_game",
       "args": [],
-      "purpose": "Smoke test start_play_game"
+      "purpose": "Smoke test start play game"
     },
     {
       "call": "submit_answer",
       "args": [
         0
       ],
-      "purpose": "Smoke test submit_answer"
+      "purpose": "Smoke test submit answer"
     },
     {
       "call": "toggle_pause",
       "args": [],
-      "purpose": "Smoke test toggle_pause"
+      "purpose": "Smoke test toggle pause"
     },
     {
       "call": "end_game",
       "args": [],
-      "purpose": "Smoke test end_game"
+      "purpose": "Smoke test end game"
     },
     {
       "call": "show_view_score",
       "args": [],
-      "purpose": "Smoke test show_view_score"
+      "purpose": "Smoke test show view score"
     },
     {
       "call": "show_update_questions",
       "args": [],
-      "purpose": "Smoke test show_update_questions"
+      "purpose": "Smoke test show update questions"
     },
     {
       "call": "update_questions",
       "args": [
         []
       ],
-      "purpose": "Smoke test update_questions"
+      "purpose": "Smoke test update questions"
     },
     {
       "call": "show_help",
       "args": [],
-      "purpose": "Smoke test show_help"
+      "purpose": "Smoke test show help"
     }
   ],
   "traceability": [

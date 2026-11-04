@@ -8,16 +8,12 @@ os, pathlib).
 import json
 import math
 import random
-import sys
-import os
+import tkinter as tk
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
-import tkinter as tk
-from tkinter import ttk
-
-from models import Game, Question, User, Admin
+from models import Admin, Game, Question, User
 
 
 class Application:
@@ -32,28 +28,61 @@ class Application:
         self._root.geometry("720x560")
         self._root.minsize(560, 420)
 
-        # Contract-declared attributes (Rule 1: private storage + accessors).
-        self._current_user: Optional[User] = None
+        # Application state
+        self._current_user: Optional[User] = User("u1", "Player One")
         self._current_game: Optional[Game] = None
         self._questions: List[Question] = self._seed_questions()
-
-        # Internal UI state (not part of the public contract surface).
         self._current_frame: Optional[tk.Frame] = None
-        self._question_index: int = 0
-        self._status_var: Optional[tk.StringVar] = None
-        self._question_label: Optional[tk.Label] = None
-        self._option_buttons: List[tk.Button] = []
-        self._score_label: Optional[tk.Label] = None
-        self._pause_button: Optional[tk.Button] = None
-        self._questions_text: Optional[tk.Text] = None
+        self._current_question_index: int = 0
+        self._status_var: tk.StringVar = tk.StringVar(value="Ready")
 
-        # Seed a default user so the app is immediately usable.
-        self._current_user = User("u1", "Player")
+        # Seed an admin user for the update questions flow.
+        self._admin: Admin = Admin("a1", "Admin")
 
+        # Show the main menu on launch.
         self.show_menu()
 
     # ------------------------------------------------------------------
-    # Contract attribute accessors (Rule 1)
+    # Seed content
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _seed_questions() -> List[Question]:
+        """Return a default list of fraction questions."""
+        return [
+            Question(
+                "q1",
+                "What is 1/2 + 1/4?",
+                ["1/4", "3/4", "2/6", "1/8"],
+                1,
+            ),
+            Question(
+                "q2",
+                "What is 2/3 - 1/3?",
+                ["1/3", "1/2", "2/6", "1"],
+                0,
+            ),
+            Question(
+                "q3",
+                "What is 1/2 of 1/2?",
+                ["1/2", "1/4", "1/8", "1"],
+                1,
+            ),
+            Question(
+                "q4",
+                "Which fraction is equivalent to 1/2?",
+                ["2/3", "3/6", "2/4", "4/6"],
+                2,
+            ),
+            Question(
+                "q5",
+                "What is 3/4 + 1/4?",
+                ["1", "3/8", "4/8", "2/4"],
+                0,
+            ),
+        ]
+
+    # ------------------------------------------------------------------
+    # Public properties (Rule 1: getter + setter for every attribute)
     # ------------------------------------------------------------------
     @property
     def root(self) -> tk.Tk:
@@ -85,76 +114,79 @@ class Application:
 
     @questions.setter
     def questions(self, value: List[Question]) -> None:
-        self._questions = list(value)
+        self._questions = value
 
-    # ------------------------------------------------------------------
-    # Seed content
-    # ------------------------------------------------------------------
-    @staticmethod
-    def _seed_questions() -> List[Question]:
-        """Return a default list of Question instances."""
-        return [
-            Question(
-                "q1",
-                "What is 1/2 + 1/4?",
-                ["1/4", "3/4", "2/6", "1/8"],
-                1,
-            ),
-            Question(
-                "q2",
-                "What is 2/3 - 1/6?",
-                ["1/2", "1/3", "1/6", "2/6"],
-                0,
-            ),
-            Question(
-                "q3",
-                "What is 3/4 * 2/3?",
-                ["5/7", "6/12", "1/2", "2/4"],
-                2,
-            ),
-            Question(
-                "q4",
-                "What is 5/8 divided by 1/4?",
-                ["5/2", "5/32", "4/5", "2/5"],
-                0,
-            ),
-            Question(
-                "q5",
-                "Which fraction is equivalent to 0.75?",
-                ["2/3", "3/4", "4/5", "5/6"],
-                1,
-            ),
-        ]
+    @property
+    def current_frame(self) -> Optional[tk.Frame]:
+        return self._current_frame
+
+    @current_frame.setter
+    def current_frame(self, value: Optional[tk.Frame]) -> None:
+        self._current_frame = value
+
+    @property
+    def current_question_index(self) -> int:
+        return self._current_question_index
+
+    @current_question_index.setter
+    def current_question_index(self, value: int) -> None:
+        self._current_question_index = value
+
+    @property
+    def status_var(self) -> tk.StringVar:
+        return self._status_var
+
+    @status_var.setter
+    def status_var(self, value: tk.StringVar) -> None:
+        self._status_var = value
+
+    @property
+    def admin(self) -> Admin:
+        return self._admin
+
+    @admin.setter
+    def admin(self, value: Admin) -> None:
+        self._admin = value
 
     # ------------------------------------------------------------------
     # Screen management
     # ------------------------------------------------------------------
     def _clear_screen(self) -> None:
-        """Destroy all root children and reset the current frame."""
+        """Destroy all children of the root window to avoid overlap."""
         for widget in self._root.winfo_children():
             widget.destroy()
         self._current_frame = None
-        self._status_var = None
-        self._question_label = None
-        self._option_buttons = []
-        self._score_label = None
-        self._pause_button = None
-        self._questions_text = None
 
     def _new_frame(self) -> tk.Frame:
-        """Create and return a fresh frame attached to the root."""
+        """Create and return a fresh frame packed into the root."""
         frame = tk.Frame(self._root, padx=20, pady=20)
         frame.pack(fill="both", expand=True)
         self._current_frame = frame
         return frame
 
-    def _set_status(self, message: str) -> None:
-        """Update the status label if one exists on the current screen."""
-        if self._status_var is not None:
-            self._status_var.set(message)
+    def _status_label(self, parent: tk.Frame) -> tk.Label:
+        """Create a shared status label bound to the status variable."""
+        label = tk.Label(
+            parent,
+            textvariable=self._status_var,
+            anchor="w",
+            fg="#333333",
+            font=("Segoe UI", 10),
+        )
+        label.pack(fill="x", pady=(0, 10))
+        return label
+
+    def _back_button(self, parent: tk.Frame) -> tk.Button:
+        """Create a standard back-to-menu button."""
+        return tk.Button(
+            parent,
+            text="Back to Main Menu",
+            command=self.show_menu,
+            width=20,
+        )
 
     # ------------------------------------------------------------------
-    # Navigation methods (contract)
+    # Navigation methods
     # ------------------------------------------------------------------
     def show_menu(self) -> None:
         """Navigate to the main menu screen."""
@@ -165,12 +197,14 @@ class Application:
             frame,
             text=self.SYSTEM_NAME,
             font=("Segoe UI", 28, "bold"),
+            fg="#1a3c6e",
         ).pack(pady=(10, 5))
 
         tk.Label(
             frame,
-            text="Learn fractions among the stars!",
+            text="Learn fractions the fun way!",
             font=("Segoe UI", 12),
+            fg="#555555",
         ).pack(pady=(0, 20))
 
         buttons = [
@@ -178,7 +212,6 @@ class Application:
             ("View Score", self.show_view_score),
             ("Update Questions", self.show_update_questions),
             ("Help", self.show_help),
-            ("Exit", self._root.destroy),
         ]
 
         for text, command in buttons:
@@ -187,8 +220,12 @@ class Application:
                 text=text,
                 command=command,
                 width=24,
-                font=("Segoe UI", 12),
+                height=2,
+                font=("Segoe UI", 11),
             ).pack(pady=6)
+
+        self._status_label(frame)
+        self._status_var.set("Welcome to Space Fractions!")
 
     def show_play_game(self) -> None:
         """Navigate to the game screen (renders current game state)."""
@@ -199,29 +236,26 @@ class Application:
             frame,
             text="Play Game",
             font=("Segoe UI", 20, "bold"),
+            fg="#1a3c6e",
         ).pack(pady=(0, 10))
 
         if self._current_game is None:
             tk.Label(
                 frame,
                 text="No active game. Start a new game to begin.",
-                font=("Segoe UI", 12),
-            ).pack(pady=20)
+                font=("Segoe UI", 11),
+            ).pack(pady=10)
             tk.Button(
                 frame,
-                text="Start Game",
+                text="Start New Game",
                 command=self.start_play_game,
                 width=20,
-            ).pack(pady=10)
-            tk.Button(
-                frame,
-                text="Back to Menu",
-                command=self.show_menu,
-                width=20,
-            ).pack(pady=10)
-            return
+            ).pack(pady=6)
+        else:
+            self._render_game_screen(frame)
 
-        self._render_game_screen(frame)
+        self._back_button(frame).pack(pady=(20, 0))
+        self._status_label(frame)
 
     def show_view_score(self) -> None:
         """Navigate to the score screen."""
@@ -232,6 +266,7 @@ class Application:
             frame,
             text="View Score",
             font=("Segoe UI", 20, "bold"),
+            fg="#1a3c6e",
         ).pack(pady=(0, 10))
 
         if self._current_game is None:
@@ -247,12 +282,9 @@ class Application:
             font=("Segoe UI", 14),
         ).pack(pady=20)
 
-        tk.Button(
-            frame,
-            text="Back to Menu",
-            command=self.show_menu,
-            width=20,
-        ).pack(pady=10)
+        self._back_button(frame).pack(pady=(20, 0))
+        self._status_label(frame)
+        self._status_var.set("Score displayed.")
 
     def show_update_questions(self) -> None:
         """Navigate to the admin questions screen."""
@@ -263,54 +295,59 @@ class Application:
             frame,
             text="Update Questions",
             font=("Segoe UI", 20, "bold"),
+            fg="#1a3c6e",
         ).pack(pady=(0, 10))
 
         tk.Label(
             frame,
-            text=(
-                "Enter one question per line in the format:\n"
-                "prompt | option1 | option2 | option3 | option4 | answer_index"
-            ),
-            font=("Segoe UI", 10),
-            justify="left",
+            text=f"Current question count: {len(self._questions)}",
+            font=("Segoe UI", 11),
         ).pack(pady=(0, 10))
 
-        self._questions_text = tk.Text(frame, height=12, width=70)
-        self._questions_text.pack(pady=5)
-
-        # Pre-populate with current questions.
+        # Listbox showing current questions.
+        listbox = tk.Listbox(frame, height=10, width=70)
+        listbox.pack(pady=5)
         for question in self._questions:
-            line = " | ".join(
-                [question.prompt]
-                + list(question.options)
-                + [str(question.answer_index)]
+            listbox.insert("end", f"{question.id}: {question.prompt}")
+
+        # Non-blocking admin actions (no modal dialogs).
+        def add_sample_question() -> None:
+            new_id = f"q{len(self._questions) + 1}"
+            new_question = Question(
+                new_id,
+                "What is 1/3 + 1/3?",
+                ["1/3", "2/3", "2/6", "1/6"],
+                1,
             )
-            self._questions_text.insert("end", line + "\n")
+            self.update_questions(self._questions + [new_question])
+            listbox.insert("end", f"{new_question.id}: {new_question.prompt}")
+            self._status_var.set(f"Added question {new_id}.")
 
-        button_row = tk.Frame(frame)
-        button_row.pack(pady=10)
+        def remove_last_question() -> None:
+            if self._questions:
+                removed = self._questions[-1]
+                self.update_questions(self._questions[:-1])
+                listbox.delete("end")
+                self._status_var.set(f"Removed question {removed.id}.")
+            else:
+                self._status_var.set("No questions to remove.")
 
         tk.Button(
-            button_row,
-            text="Save Questions",
-            command=self._save_questions_from_text,
-            width=18,
-        ).pack(side="left", padx=5)
-
-        tk.Button(
-            button_row,
-            text="Back to Menu",
-            command=self.show_menu,
-            width=18,
-        ).pack(side="left", padx=5)
-
-        self._status_var = tk.StringVar(value="")
-        tk.Label(
             frame,
-            textvariable=self._status_var,
-            font=("Segoe UI", 10),
-            fg="green",
-        ).pack(pady=5)
+            text="Add Sample Question",
+            command=add_sample_question,
+            width=20,
+        ).pack(pady=4)
+        tk.Button(
+            frame,
+            text="Remove Last Question",
+            command=remove_last_question,
+            width=20,
+        ).pack(pady=4)
+
+        self._back_button(frame).pack(pady=(20, 0))
+        self._status_label(frame)
+        self._status_var.set("Admin question management.")
 
     def show_help(self) -> None:
         """Navigate to the help screen."""
@@ -319,142 +356,52 @@ class Application:
 
         tk.Label(
             frame,
-            text=self.SYSTEM_NAME + " - Help",
+            text=f"{self.SYSTEM_NAME} - Help",
             font=("Segoe UI", 20, "bold"),
+            fg="#1a3c6e",
         ).pack(pady=(0, 10))
 
         help_text = (
             "Welcome to Space Fractions!\n\n"
             "How to play:\n"
-            "1. Choose 'Play Game' from the main menu.\n"
-            "2. Read each fraction question and select an answer.\n"
-            "3. Correct answers increase your score.\n"
-            "4. Use Pause/Resume to take a break.\n"
-            "5. End the game to view your final score.\n\n"
-            "Admins can update the question bank from the\n"
-            "'Update Questions' screen."
+            "1. Click 'Play Game' to start a new session.\n"
+            "2. Read each fraction question and choose an answer.\n"
+            "3. Correct answers earn points.\n"
+            "4. Use 'Pause' to pause and 'Resume' to continue.\n"
+            "5. Click 'End Game' when you are finished.\n\n"
+            "View your score anytime from the main menu."
         )
 
         tk.Label(
             frame,
             text=help_text,
-            font=("Segoe UI", 12),
             justify="left",
+            font=("Segoe UI", 11),
         ).pack(pady=10)
 
-        tk.Button(
-            frame,
-            text="Back to Menu",
-            command=self.show_menu,
-            width=20,
-        ).pack(pady=10)
+        self._back_button(frame).pack(pady=(20, 0))
+        self._status_label(frame)
+        self._status_var.set("Help displayed.")
 
     # ------------------------------------------------------------------
-    # Game flow methods (contract)
+    # Game logic
     # ------------------------------------------------------------------
     def start_play_game(self) -> None:
         """Navigate to play screen and initialize game state."""
-        if not self._questions:
-            self._clear_screen()
-            frame = self._new_frame()
-            tk.Label(
-                frame,
-                text="No questions available. Please add questions first.",
-                font=("Segoe UI", 12),
-            ).pack(pady=20)
-            tk.Button(
-                frame,
-                text="Back to Menu",
-                command=self.show_menu,
-                width=20,
-            ).pack(pady=10)
-            return
-
-        game_id = "g" + datetime.now().strftime("%Y%m%d%H%M%S%f")
-        self._current_game = Game(game_id, 0)
-        self._current_game.play()
-        self._question_index = 0
-
         self._clear_screen()
         frame = self._new_frame()
+
+        # Create a fresh game and start it.
+        game = Game("g1", 0)
+        game.play()
+        self._current_game = game
+        self._current_question_index = 0
+
         self._render_game_screen(frame)
+        self._status_var.set("New game started. Good luck!")
 
-    def submit_answer(self, answer_index: int) -> None:
-        """Submit an answer for the current question."""
-        if self._current_game is None:
-            self._set_status("No active game.")
-            return
-
-        if self._current_game.state != "Playing":
-            self._set_status("Game is not currently playing.")
-            return
-
-        if self._question_index >= len(self._questions):
-            self._set_status("No more questions.")
-            return
-
-        question = self._questions[self._question_index]
-        if answer_index == question.answer_index:
-            self._current_game.score += 1
-            feedback = "Correct!"
-        else:
-            feedback = (
-                f"Incorrect. The answer was: "
-                f"{question.options[question.answer_index]}"
-            )
-
-        self._question_index += 1
-
-        if self._question_index >= len(self._questions):
-            self._current_game.game_over()
-            self._set_status(feedback + " Game over!")
-            self._refresh_game_screen()
-            return
-
-        self._set_status(feedback)
-        self._refresh_game_screen()
-
-    def toggle_pause(self) -> None:
-        """Toggle pause/resume state of the current game."""
-        if self._current_game is None:
-            self._set_status("No active game.")
-            return
-
-        if self._current_game.state == "Playing":
-            self._current_game.pause()
-            self._set_status("Game paused.")
-        elif self._current_game.state == "Paused":
-            self._current_game.resume()
-            self._set_status("Game resumed.")
-        else:
-            self._set_status("Cannot pause a finished game.")
-
-        self._refresh_game_screen()
-
-    def end_game(self) -> None:
-        """Transition the current game state to GameOver."""
-        if self._current_game is None:
-            self._set_status("No active game.")
-            return
-
-        if self._current_game.state == "GameOver":
-            self._set_status("Game is already over.")
-            return
-
-        self._current_game.game_over()
-        self._set_status("Game over!")
-        self._refresh_game_screen()
-
-    def update_questions(self, questions: list) -> None:
-        """Update the questions list (Admin flow)."""
-        self._questions = list(questions)
-        self._set_status(f"Questions updated ({len(self._questions)} total).")
-
-    # ------------------------------------------------------------------
-    # Game screen rendering helpers
-    # ------------------------------------------------------------------
     def _render_game_screen(self, frame: tk.Frame) -> None:
-        """Render the full game screen into the given frame."""
+        """Render the current game state into the given frame."""
         game = self._current_game
         if game is None:
             return
@@ -463,165 +410,159 @@ class Application:
             frame,
             text="Play Game",
             font=("Segoe UI", 20, "bold"),
+            fg="#1a3c6e",
         ).pack(pady=(0, 10))
 
-        self._score_label = tk.Label(
-            frame,
-            text=f"Score: {game.score}",
-            font=("Segoe UI", 14),
-        )
-        self._score_label.pack(pady=(0, 5))
-
-        state_label = tk.Label(
-            frame,
-            text=f"State: {game.state}",
-            font=("Segoe UI", 11),
-        )
-        state_label.pack(pady=(0, 10))
-
-        self._question_label = tk.Label(
-            frame,
-            text="",
-            font=("Segoe UI", 14),
-            wraplength=600,
-            justify="center",
-        )
-        self._question_label.pack(pady=10)
-
-        options_frame = tk.Frame(frame)
-        options_frame.pack(pady=10)
-        self._option_buttons = []
-
-        self._status_var = tk.StringVar(value="")
+        # Score and state display.
+        info_text = f"Score: {game.view_score()}   |   State: {game.state}"
         tk.Label(
             frame,
-            textvariable=self._status_var,
-            font=("Segoe UI", 10),
-            fg="blue",
-        ).pack(pady=5)
+            text=info_text,
+            font=("Segoe UI", 12, "bold"),
+        ).pack(pady=(0, 10))
 
+        # Question display.
+        if self._questions:
+            index = self._current_question_index % len(self._questions)
+            question = self._questions[index]
+            tk.Label(
+                frame,
+                text=f"Question {index + 1} of {len(self._questions)}",
+                font=("Segoe UI", 10),
+                fg="#555555",
+            ).pack(pady=(0, 5))
+            tk.Label(
+                frame,
+                text=question.get_prompt(),
+                font=("Segoe UI", 14),
+                wraplength=600,
+            ).pack(pady=(0, 10))
+
+            # Answer buttons.
+            for option_index, option in enumerate(question.get_options()):
+                tk.Button(
+                    frame,
+                    text=option,
+                    command=lambda idx=option_index: self.submit_answer(idx),
+                    width=40,
+                ).pack(pady=3)
+        else:
+            tk.Label(
+                frame,
+                text="No questions available. Add questions via Update Questions.",
+                font=("Segoe UI", 11),
+            ).pack(pady=10)
+
+        # Control buttons.
         controls = tk.Frame(frame)
-        controls.pack(pady=10)
+        controls.pack(pady=15)
 
-        self._pause_button = tk.Button(
+        if game.state == "Paused":
+            pause_text = "Resume"
+        else:
+            pause_text = "Pause"
+
+        tk.Button(
             controls,
-            text="Pause",
+            text=pause_text,
             command=self.toggle_pause,
-            width=14,
-        )
-        self._pause_button.pack(side="left", padx=5)
+            width=12,
+        ).pack(side="left", padx=5)
 
         tk.Button(
             controls,
             text="End Game",
             command=self.end_game,
-            width=14,
+            width=12,
         ).pack(side="left", padx=5)
 
-        tk.Button(
-            controls,
-            text="Back to Menu",
-            command=self.show_menu,
-            width=14,
-        ).pack(side="left", padx=5)
+        self._back_button(frame).pack(pady=(10, 0))
+        self._status_label(frame)
 
-        self._refresh_game_screen()
-
-    def _refresh_game_screen(self) -> None:
-        """Refresh dynamic widgets on the game screen."""
+    def submit_answer(self, answer_index: int) -> None:
+        """Submit an answer for the current question."""
         game = self._current_game
         if game is None:
+            self._status_var.set("No active game. Start a new game first.")
             return
 
-        if self._score_label is not None:
-            self._score_label.config(text=f"Score: {game.score}")
+        if game.state != "Playing":
+            self._status_var.set("Game is not currently playing.")
+            return
 
-        if self._pause_button is not None:
-            if game.state == "Playing":
-                self._pause_button.config(text="Pause")
-            elif game.state == "Paused":
-                self._pause_button.config(text="Resume")
-            else:
-                self._pause_button.config(text="Pause", state="disabled")
+        if not self._questions:
+            self._status_var.set("No questions available.")
+            return
 
-        # Clear existing option buttons.
-        for button in self._option_buttons:
-            button.destroy()
-        self._option_buttons = []
+        index = self._current_question_index % len(self._questions)
+        question = self._questions[index]
 
-        if self._question_label is None:
+        if answer_index == question.get_answer_index():
+            game.score += 1
+            self._status_var.set("Correct! +1 point.")
+        else:
+            self._status_var.set(
+                f"Incorrect. The answer was: "
+                f"{question.get_options()[question.get_answer_index()]}"
+            )
+
+        # Advance to the next question.
+        self._current_question_index += 1
+
+        # Re-render the game screen to show the next question and score.
+        self._clear_screen()
+        frame = self._new_frame()
+        self._render_game_screen(frame)
+
+    def toggle_pause(self) -> None:
+        """Toggle pause/resume state of the current game."""
+        game = self._current_game
+        if game is None:
+            self._status_var.set("No active game to pause.")
+            return
+
+        if game.state == "Playing":
+            game.pause()
+            self._status_var.set("Game paused.")
+        elif game.state == "Paused":
+            game.resume()
+            self._status_var.set("Game resumed.")
+        else:
+            self._status_var.set("Cannot pause a finished game.")
+            return
+
+        # Re-render to update the pause/resume button label.
+        self._clear_screen()
+        frame = self._new_frame()
+        self._render_game_screen(frame)
+
+    def end_game(self) -> None:
+        """Transition the current game state to GameOver."""
+        game = self._current_game
+        if game is None:
+            self._status_var.set("No active game to end.")
             return
 
         if game.state == "GameOver":
-            self._question_label.config(text="Game Over!")
+            self._status_var.set("Game is already over.")
             return
 
-        if self._question_index >= len(self._questions):
-            self._question_label.config(text="No more questions.")
-            return
+        game.game_over()
+        self._status_var.set(
+            f"Game over! Final score: {game.view_score()}"
+        )
 
-        question = self._questions[self._question_index]
-        self._question_label.config(text=question.prompt)
+        # Re-render to reflect the GameOver state.
+        self._clear_screen()
+        frame = self._new_frame()
+        self._render_game_screen(frame)
 
-        for index, option in enumerate(question.options):
-            button = tk.Button(
-                self._question_label.master,
-                text=option,
-                command=lambda idx=index: self.submit_answer(idx),
-                width=30,
-            )
-            button.pack(pady=3)
-            self._option_buttons.append(button)
-
-    # ------------------------------------------------------------------
-    # Admin screen helper
-    # ------------------------------------------------------------------
-    def _save_questions_from_text(self) -> None:
-        """Parse the questions text widget and update the question bank."""
-        if self._questions_text is None:
-            return
-
-        raw = self._questions_text.get("1.0", "end")
-        parsed: List[Question] = []
-        errors: List[str] = []
-
-        for line_number, line in enumerate(raw.splitlines(), start=1):
-            line = line.strip()
-            if not line:
-                continue
-
-            parts = [part.strip() for part in line.split("|")]
-            if len(parts) != 6:
-                errors.append(f"Line {line_number}: expected 6 fields.")
-                continue
-
-            prompt = parts[0]
-            options = parts[1:5]
-            try:
-                answer_index = int(parts[5])
-            except ValueError:
-                errors.append(f"Line {line_number}: answer index must be an integer.")
-                continue
-
-            if not (0 <= answer_index < len(options)):
-                errors.append(
-                    f"Line {line_number}: answer index out of range."
-                )
-                continue
-
-            question_id = f"q{line_number}"
-            parsed.append(Question(question_id, prompt, options, answer_index))
-
-        if errors:
-            self._set_status("Errors:\n" + "\n".join(errors))
-            return
-
-        if not parsed:
-            self._set_status("No valid questions entered.")
-            return
-
-        self.update_questions(parsed)
-        self._set_status(f"Saved {len(parsed)} questions.")
+    def update_questions(self, questions: list) -> None:
+        """Update the questions list (Admin flow)."""
+        # Accept any iterable of Question instances.
+        self._questions = list(questions)
+        self._admin.update_questions(self._questions)
+        self._status_var.set(f"Questions updated. Total: {len(self._questions)}")
 
 
 def create_app() -> Application:
